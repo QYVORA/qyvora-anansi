@@ -2,6 +2,27 @@
 
 ## [Unreleased]
 
+### Added (zero-config install & security milestone)
+- `install.sh` rewritten as a zero-decision installer: auto-detects
+  OS/arch/shell, downloads the checksum-verified prebuilt binary
+  (SHA-256 vs published `checksums.txt`), falls back to a source build,
+  installs to `~/.local/bin`, and configures PATH in bash/zsh/fish
+- One-liner install: `curl -fsSL https://raw.githubusercontent.com/QYVORA/qyvora-anansi-cli/main/install.sh | bash`
+- `anansi version` subcommand + `anansi --version` flag, stamped via ldflags
+  (`cmd.Version`); the installer verifies a genuine binary with `anansi version`
+- `make verify` — one command running lint + vet + race tests + build
+- Security regression tests in `security_test.go`: no `os/exec` imports (no
+  subprocess/RCE backdoor surface), no environment secret access, and a
+  allowlist test proving the tool only contacts documented external hosts
+- CLI tests: version flag/subcommand output, module flag parsing, findings
+  dedupe, target validation
+- Probe edge-case tests: empty host list, nil ports
+- Wordlist data-integrity tests: vuln severity columns, stack-file format,
+  fingerprint needles, takeover/header rule formats
+- `checksums.txt` generated and attached to every release (sha256)
+- `-trimpath` on all release builds for reproducible binaries
+- CI now runs the race detector (`go test -race`) on every push/PR
+
 ### Added
 - LICENSE file (MIT)
 - SECURITY.md with vulnerability disclosure policy

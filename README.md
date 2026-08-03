@@ -118,7 +118,25 @@ Add your own fingerprints, path rules, and version ranges by editing the files u
 
 ## Install
 
-### Option 1 — Download binary (no Go required)
+### Option 1 — One-liner (recommended)
+
+Auto-detects your OS, CPU architecture, and shell. Downloads the checksum-verified
+prebuilt binary, or falls back to building from source if you're offline. No user
+choices required.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/QYVORA/qyvora-anansi-cli/main/install.sh | bash
+```
+
+The installer:
+1. Detects your OS (Linux / macOS / Windows Git-Bash) and architecture (amd64 / arm64)
+2. Downloads the matching binary from GitHub Releases and verifies its SHA-256
+   against the published `checksums.txt` (supply-chain protection)
+3. Falls back to building from source (needs Go) if the download is unavailable
+4. Installs to `~/.local/bin` (no sudo needed) and adds it to your shell config
+5. Confirms the install by printing the version
+
+### Option 2 — Manual binary download (no Go required)
 
 ```bash
 # Linux x86_64
@@ -142,7 +160,13 @@ chmod +x anansi
 sudo mv anansi /usr/local/bin/
 ```
 
-### Option 2 — Build from source (automated)
+Verify the download's integrity against the published checksums:
+
+```bash
+sha256sum -c <(curl -fsSL https://github.com/QYVORA/qyvora-anansi-cli/releases/latest/download/checksums.txt) --ignore-missing
+```
+
+### Option 3 — Build from source (automated)
 
 **Requirements:** Go 1.22+ and active internet connection.
 
@@ -152,7 +176,30 @@ cd qyvora-anansi-cli
 ./install.sh
 ```
 
-The installer verifies your dependencies, downloads packages, builds the stripped binary, and configures it in your environment path automatically. The binary has **zero runtime dependencies**.
+The binary has **zero runtime dependencies**.
+
+---
+
+## Verify (one command)
+
+Run every check — lint, static analysis, race-detector tests, and a build —
+in a single shot:
+
+```bash
+make verify
+```
+
+This is equivalent to:
+
+```bash
+golangci-lint run ./...
+go vet ./...
+go test -race ./... -count=1 -timeout 120s
+go build -o anansi .
+```
+
+A passing `make verify` means: no lint issues, no vet issues, no data races, all
+tests (including the security tests below) pass, and the binary builds cleanly.
 
 ---
 
