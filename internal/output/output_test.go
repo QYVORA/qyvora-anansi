@@ -3,6 +3,7 @@ package output
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -129,5 +130,136 @@ func TestTechTableRenders(_ *testing.T) {
 		},
 	})
 	r.TechTable(nil)
+}
+
+func TestChainTableRenders(_ *testing.T) {
+	r := New("terminal", false)
+	r.ChainTable([]ExploitChain{
+		{
+			ID:       "chain-1",
+			Name:     "Full Compromise",
+			Summary:  "Escalation to full control.",
+			Severity: Critical,
+			Score:    57,
+			Steps: []ChainStep{
+				{Order: 1, Class: "Sensitive Information Disclosure", ClassID: "info-disclosure", Severity: Low, FindingTitle: "Exposed Environment File", AffectedAsset: "https://host/.env", Technique: "Harvest secrets."},
+				{Order: 2, Class: "Remote Code Execution", ClassID: "rce", Severity: Critical, FindingTitle: "Unauthenticated RCE", AffectedAsset: "https://host", Technique: "Execute code."},
+			},
+		},
+	})
+	r.ChainTable(nil)
+}
+
+func TestSummaryIncludesChains(_ *testing.T) {
+	r := New("terminal", false)
+	report := &Report{
+		Target:    "example.com",
+		StartedAt: time.Now(),
+		Chains: []ExploitChain{
+			{Name: "Full Compromise", Severity: Critical, Score: 57, Steps: []ChainStep{{Order: 1, ClassID: "rce"}}},
+		},
+	}
+	r.Summary(report)
+}
+
+func TestMarkdownRendersChains(t *testing.T) {
+	r := New("markdown", false)
+	report := &Report{
+		Target:    "example.com",
+		StartedAt: time.Now(),
+		Chains: []ExploitChain{
+			{
+				Name:     "Full Compromise",
+				Summary:  "Escalation to full control.",
+				Severity: Critical,
+				Steps: []ChainStep{
+					{Order: 1, Class: "Sensitive Information Disclosure", ClassID: "info-disclosure", Severity: Low, FindingTitle: "Exposed Environment File", AffectedAsset: "https://host/.env", Technique: "Harvest secrets."},
+				},
+			},
+		},
+	}
+	out := captureStdout(t, func() { r.Summary(report) })
+	if !strings.Contains(out, "## Exploit Chains") {
+		t.Fatalf("markdown output missing Exploit Chains section:\n%s", out)
+	}
+	if !strings.Contains(out, "Full Compromise") {
+		t.Fatalf("markdown output missing chain name:\n%s", out)
+	}
+}
+
+func TestHTMLRendersChains(t *testing.T) {
+	r := New("html", false)
+	report := &Report{
+		Target:    "example.com",
+		StartedAt: time.Now(),
+		Chains: []ExploitChain{
+			{
+				Name:     "Full Compromise",
+				Summary:  "Escalation to full control.",
+				Severity: Critical,
+				Steps: []ChainStep{
+					{Order: 1, Class: "Remote Code Execution", ClassID: "rce", Severity: Critical, FindingTitle: "Unauthenticated RCE", AffectedAsset: "https://host", Technique: "Execute code."},
+				},
+			},
+		},
+	}
+	out := captureStdout(t, func() { r.Summary(report) })
+	if !strings.Contains(out, "Exploit Chains") {
+		t.Fatalf("HTML output missing Exploit Chains card:\n%s", out)
+	}
+	if !strings.Contains(out, "Full Compromise") {
+		t.Fatalf("HTML output missing chain name:\n%s", out)
+	}
+}
+
+// captureStdout runs fn while os.Stdout points at a temporary file and returns
+// everything written to it.
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	f, err := os.CreateTemp(t.TempDir(), "anansi-out-*.txt")
+	if err != nil {
+		t.Fatalf("creating temp file: %v", err)
+	}
+
+	old := os.Stdout
+	os.Stdout = f
+	defer func() { os.Stdout = old }()
+	defer func() { _ = f.Close() }()
+
+	fn()
+
+	if err := f.Sync(); err != nil {
+		t.Fatalf("syncing temp file: %v", err)
+	}
+	data, err := os.ReadFile(f.Name())
+	if err != nil {
+		t.Fatalf("reading temp file: %v", err)
+	}
+	return string(data)
+}
+
+func TestReportJSONIncludesChains(t *testing.T) {
+	report := &Report{
+		Target: "example.com",
+		Chains: []ExploitChain{
+			{
+				ID:       "chain-1",
+				Name:     "Full Compromise",
+				Severity: Critical,
+				Steps: []ChainStep{
+					{Order: 1, ClassID: "rce", Class: "Remote Code Execution", FindingTitle: "Unauthenticated RCE"},
+				},
+			},
+		},
+	}
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	if err := enc.Encode(report); err != nil {
+		t.Fatalf("encoding report: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "Chains") || !strings.Contains(out, "Full Compromise") || !strings.Contains(out, "Unauthenticated RCE") {
+		t.Fatalf("JSON output missing chains: %s", out)
+	}
 }
 

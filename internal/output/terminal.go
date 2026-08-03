@@ -380,6 +380,42 @@ func (r *Renderer) TechTable(results []TechResult) {
 	fmt.Println()
 }
 
+func (r *Renderer) ChainTable(chains []ExploitChain) {
+	if r.isQuiet() {
+		return
+	}
+	if len(chains) == 0 {
+		dim.Println("  [*] no exploit chains assembled")
+		return
+	}
+
+	for _, c := range chains {
+		white.Printf("  [+] %s [%s] (score %d)\n", c.Name, chainSeverityColor(c.Severity), c.Score)
+		dim.Printf("      %s\n", c.Summary)
+		for _, s := range c.Steps {
+			fmt.Printf("      %d. %s — %s\n", s.Order, chainSeverityColor(s.Severity), dim.Sprint(s.FindingTitle))
+			dim.Printf("          asset: %s\n", s.AffectedAsset)
+			if s.Technique != "" {
+				dim.Printf("          technique: %s\n", s.Technique)
+			}
+		}
+		fmt.Println()
+	}
+}
+
+// chainSeverityColor renders a severity label with its colour.
+func chainSeverityColor(sev string) string {
+	switch sev {
+	case Critical:
+		return red.Sprint(sev)
+	case High:
+		return orange.Sprint(sev)
+	case Medium:
+		return color.New(color.FgYellow).Sprint(sev)
+	}
+	return dim.Sprint(sev)
+}
+
 func (r *Renderer) OSINTTable(results []OSINTResult) {
 	if r.isQuiet() {
 		return
@@ -503,6 +539,14 @@ func (r *Renderer) Summary(report *Report) {
 	findingStr := fmt.Sprintf("  findings    CRIT:%d  HIGH:%d  MED:%d  LOW:%d  INFO:%d",
 		counts[Critical], counts[High], counts[Medium], counts[Low], counts[Info])
 	dim.Println(findingStr)
+
+	if len(report.Chains) > 0 {
+		top := report.Chains[0]
+		fmt.Printf("  chains      %d paths, top: %s [%s]\n",
+			len(report.Chains), top.Name, chainSeverityColor(top.Severity))
+	} else {
+		dim.Println("  chains      0 exploit paths")
+	}
 
 	if counts[Critical]+counts[High] > 0 {
 		fmt.Println()
@@ -754,6 +798,16 @@ const htmlReportTemplate = `<!DOCTYPE html>
         .finding-title { font-weight: 600; font-size: 1.05rem; }
         .finding-asset { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--accent); margin-bottom: 0.4rem; }
         .finding-desc { font-size: 0.9rem; color: rgba(238, 240, 238, 0.70); }
+        .chain-step {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.45rem 0 0.1rem 0;
+            margin-top: 0.5rem;
+            border-top: 1px dashed var(--border);
+        }
+        .chain-detail { font-size: 0.8rem; color: rgba(238, 240, 238, 0.60); margin-left: 1.4rem; }
         .finding-evidence {
             background: #0d0d0d;
             border: 1px solid var(--border);
@@ -994,6 +1048,33 @@ const htmlReportTemplate = `<!DOCTYPE html>
                     <p style="color: var(--text-dim);">No application stacks detected.</p>
                 {{end}}
             </div>
+
+            <!-- Exploit Chains -->
+            <div class="card">
+                <h2>Exploit Chains ({{len .Report.Chains}})</h2>
+                {{if .Report.Chains}}
+                    {{range .Report.Chains}}
+                        <div style="margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
+                            <div class="finding-hdr">
+                                <span class="finding-title">{{.Name}}</span>
+                                <span class="finding-badge {{html (lower .Severity)}}">{{.Severity}}</span>
+                            </div>
+                            <div class="finding-desc">{{.Summary}}</div>
+                            {{range .Steps}}
+                                <div class="chain-step">
+                                    <span class="mono" style="color: var(--text-dim);">{{.Order}}.</span>
+                                    <span style="flex: 1; font-weight: 600;">{{.Class}}</span>
+                                    <span class="finding-badge {{html (lower .Severity)}}">{{.Severity}}</span>
+                                </div>
+                                <div class="chain-detail">{{.FindingTitle}} <span class="mono" style="color: var(--accent);">{{.AffectedAsset}}</span></div>
+                                {{if .Technique}}<div class="chain-detail" style="font-style: italic;">Technique: {{.Technique}}</div>{{end}}
+                            {{end}}
+                        </div>
+                    {{end}}
+                {{else}}
+                    <p style="color: var(--text-dim);">No exploit chains assembled.</p>
+                {{end}}
+            </div>
         </div>
 
         <div class="sidebar">
@@ -1018,6 +1099,7 @@ const htmlReportTemplate = `<!DOCTYPE html>
                     <li style="display: flex; justify-content: space-between;"><span>Medium</span> <span class="badge medium">{{index .Counts "MEDIUM"}}</span></li>
                     <li style="display: flex; justify-content: space-between;"><span>Low</span> <span class="badge low">{{index .Counts "LOW"}}</span></li>
                     <li style="display: flex; justify-content: space-between;"><span>Info</span> <span class="badge info">{{index .Counts "INFO"}}</span></li>
+                    <li style="display: flex; justify-content: space-between;"><span>Exploit Chains</span> <span class="badge info">{{len .Report.Chains}}</span></li>
                 </ul>
             </div>
         </div>
@@ -1046,6 +1128,7 @@ func (r *Renderer) renderMarkdown(report *Report) {
 	fmt.Printf("- **Risk Score:** %d/100\n", riskScore)
 	fmt.Printf("- **Findings:** Critical: %d | High: %d | Medium: %d | Low: %d | Info: %d\n",
 		counts[Critical], counts[High], counts[Medium], counts[Low], counts[Info])
+	fmt.Printf("- **Exploit Chains:** %d\n", len(report.Chains))
 	fmt.Println()
 
 	// Vulnerability Log
@@ -1200,6 +1283,26 @@ func (r *Renderer) renderMarkdown(report *Report) {
 				}
 				if f.Remediation != "" {
 					fmt.Printf("  - Fix: %s\n", f.Remediation)
+				}
+			}
+			fmt.Println()
+		}
+	}
+
+	// Exploit Chains
+	fmt.Println()
+	fmt.Println("## Exploit Chains")
+	if len(report.Chains) == 0 {
+		fmt.Println("No exploit chains assembled.")
+	} else {
+		for _, c := range report.Chains {
+			fmt.Printf("### [%s] %s\n", c.Severity, c.Name)
+			fmt.Printf("- **Summary:** %s\n", c.Summary)
+			for _, s := range c.Steps {
+				fmt.Printf("%d. **%s** (%s) — %s\n", s.Order, s.Class, s.Severity, s.FindingTitle)
+				fmt.Printf("   - Asset: `%s`\n", s.AffectedAsset)
+				if s.Technique != "" {
+					fmt.Printf("   - Technique: %s\n", s.Technique)
 				}
 			}
 			fmt.Println()
