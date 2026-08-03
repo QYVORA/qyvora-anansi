@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fatih/color"
+	"github.com/spf13/cobra"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/discovery"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/headers"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/osint"
@@ -20,25 +22,41 @@ import (
 	"github.com/QYVORA/qyvora-anansi-cli/internal/takeover"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/techstack"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/tls"
-	"github.com/fatih/color"
-	"github.com/spf13/cobra"
 )
 
 var (
-	flagDeep       bool
-	flagOut        string
-	flagOutputFile string
-	flagTimeout    int
-	flagModules    []string
-	flagWordlist   string
-	flagThreads    int
-	flagVerbose    bool
-	flagRecursive  bool
-	flagMutate     bool
-	flagDelay      int
-	flagPorts      []string
-	flagStealth    bool
+	flagDeep        bool
+	flagOut         string
+	flagOutputFile  string
+	flagTimeout     int
+	flagModules     []string
+	flagWordlist    string
+	flagThreads     int
+	flagVerbose     bool
+	flagRecursive   bool
+	flagMutate      bool
+	flagDelay       int
+	flagPorts       []string
+	flagStealth     bool
 )
+
+// Version is stamped at build time via:
+//
+//	-ldflags "-X github.com/QYVORA/qyvora-anansi-cli/cmd.Version=<version>"
+//
+// It defaults to "dev" for local builds.
+var Version = "dev"
+
+// versionCmd prints the build version.  The installer and CI use it to
+// verify a genuine binary is on the system.
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print the ANANSI CLI version",
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, _ []string) {
+		cmd.Println(Version)
+	},
+}
 
 // rootCmd is the main Cobra command.  It requires exactly one argument:
 // the target domain to scan.  The full ASCII art banner is shown in the
@@ -52,6 +70,10 @@ var rootCmd = &cobra.Command{
   ` + output.CompanyURL + `
   Built in ` + output.BuiltIn + `
 `,
+	// ArbitraryArgs keeps the root command accepting a bare positional
+	// target even though it also has subcommands (e.g. `anansi version`).
+	// Without this, cobra rejects `anansi target.com` as an unknown command.
+	Args: cobra.ArbitraryArgs,
 	RunE: runScan,
 }
 
@@ -78,6 +100,8 @@ func init() {
 	rootCmd.Flags().StringSliceVarP(&flagPorts, "ports", "p", []string{"80", "443"}, "Ports to probe (comma-separated)")
 	rootCmd.Flags().BoolVar(&flagStealth, "stealth", false, "Enable stealth mode: random UA, jitter, skip crt.sh, reduced concurrency")
 	rootCmd.Flags().StringVar(&flagOutputFile, "output-file", "", "Write output to file instead of stdout")
+	rootCmd.Flags().Bool("version", false, "Print version information and exit")
+	rootCmd.AddCommand(versionCmd)
 }
 
 // hasModule reports whether the given module name is present in the
@@ -112,6 +136,10 @@ func dedupeFindings(findings []output.Finding) []output.Finding {
 // runScan is the top-level scan orchestrator.  It runs each enabled module
 // in sequence, passes results between phases, and returns the final report.
 func runScan(cmd *cobra.Command, args []string) error {
+	if showVersion, _ := cmd.Flags().GetBool("version"); showVersion {
+		cmd.Println(Version)
+		return nil
+	}
 	if len(args) == 0 {
 		return cmd.Help()
 	}

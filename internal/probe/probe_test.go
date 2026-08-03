@@ -91,3 +91,23 @@ func TestLiveOnly(t *testing.T) {
 		t.Fatalf("expected live.example.com, got %s", live[0].FQDN)
 	}
 }
+
+func TestRunEmptyHosts(t *testing.T) {
+	// Guard against panics/division-by-zero when no hosts survive discovery.
+	results, err := Run(output.New("terminal", false), nil, 1, 0, []string{"80"}, 0, false)
+	if err != nil {
+		t.Fatalf("Run with empty hosts returned error: %v", err)
+	}
+	if len(results) != 0 {
+		t.Fatalf("Run with empty hosts returned %d results, want 0", len(results))
+	}
+}
+
+func TestRunEmptyPorts(t *testing.T) {
+	// A missing --ports value must not cause a nil map / slice panic.
+	results, err := Run(output.New("terminal", false), []string{"example.com"}, 1, 2, nil, 0, false)
+	if err != nil {
+		t.Fatalf("Run with nil ports returned error: %v", err)
+	}
+	_ = results
+}

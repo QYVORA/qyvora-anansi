@@ -72,3 +72,95 @@ func TestLoadWordlistDeep(t *testing.T) {
 		t.Fatal("deep wordlist should be larger than default")
 	}
 }
+
+func TestTechVulnsDataIntegrity(t *testing.T) {
+	// Format: <stack>|<target>|<title>|<severity>|<minVersion>|<maxVersion>|<description>|<remediation>
+	validSeverities := map[string]bool{"INFO": true, "LOW": true, "MEDIUM": true, "HIGH": true, "CRITICAL": true}
+	for _, line := range LoadData("wordlists/tech/vulns.txt") {
+		parts := strings.Split(line, "|")
+		if len(parts) < 4 {
+			t.Errorf("vulns.txt malformed line (want >=4 fields, got %d): %q", len(parts), line)
+			continue
+		}
+		if parts[0] == "" || parts[2] == "" {
+			t.Errorf("vulns.txt line missing stack/title: %q", line)
+		}
+		if !validSeverities[parts[3]] {
+			t.Errorf("vulns.txt invalid severity %q in %q", parts[3], line)
+		}
+	}
+}
+
+func TestTechStackDataIntegrity(t *testing.T) {
+	// Each <stack>.txt must use the audit format and only reference a stack
+	// name that exists in fingerprints.txt.  Column count varies: 4 columns
+	// (path|title|severity|bodyMatch) or 5 (adds locationMatch).
+	validSeverities := map[string]bool{"INFO": true, "LOW": true, "MEDIUM": true, "HIGH": true, "CRITICAL": true}
+
+	knownStacks := map[string]bool{}
+	for _, line := range LoadData("wordlists/tech/fingerprints.txt") {
+		parts := strings.Split(line, "|")
+		if len(parts) < 2 || parts[0] == "" {
+			t.Errorf("fingerprints.txt malformed line: %q", line)
+			continue
+		}
+		knownStacks[strings.TrimSpace(parts[0])] = true
+	}
+	if len(knownStacks) == 0 {
+		t.Fatal("fingerprints.txt produced no stack names")
+	}
+
+	stacks := []string{"wordpress", "drupal", "joomla", "magento", "ghost", "moodle", "mediawiki", "laravel", "generic"}
+	for _, stack := range stacks {
+		t.Run(stack, func(t *testing.T) {
+			for _, line := range LoadData("wordlists/tech/" + stack + ".txt") {
+				parts := strings.Split(line, "|")
+				if len(parts) < 4 || len(parts) > 5 {
+					t.Errorf("%s.txt malformed line (want 4-5 fields, got %d): %q", stack, len(parts), line)
+					continue
+				}
+				if parts[0] == "" || parts[1] == "" {
+					t.Errorf("%s.txt line missing path/title: %q", stack, line)
+				}
+				if !validSeverities[parts[2]] {
+					t.Errorf("%s.txt invalid severity %q in %q", stack, parts[2], line)
+				}
+			}
+		})
+	}
+}
+
+func TestTechFingerprintsNonEmptyNeedles(t *testing.T) {
+	for _, line := range LoadData("wordlists/tech/fingerprints.txt") {
+		parts := strings.Split(line, "|")
+		if len(parts) != 2 {
+			t.Errorf("fingerprints.txt malformed line: %q", line)
+			continue
+		}
+		if strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
+			t.Errorf("fingerprints.txt has empty stack or needle: %q", line)
+		}
+	}
+}
+
+func TestTakeoverFingerprintsDataIntegrity(t *testing.T) {
+	for _, line := range LoadData("wordlists/takeover/fingerprints.txt") {
+		parts := strings.Split(line, "|")
+		if len(parts) != 3 {
+			t.Errorf("takeover/fingerprints.txt malformed line: %q", line)
+			continue
+		}
+		if parts[0] == "" || parts[1] == "" || parts[2] == "" {
+			t.Errorf("takeover/fingerprints.txt has empty field: %q", line)
+		}
+	}
+}
+
+func TestHeadersRulesDataIntegrity(t *testing.T) {
+	for _, line := range LoadData("wordlists/headers/rules.txt") {
+		parts := strings.Split(line, "|")
+		if len(parts) < 3 {
+			t.Errorf("headers/rules.txt malformed line (want >=3 fields): %q", line)
+		}
+	}
+}

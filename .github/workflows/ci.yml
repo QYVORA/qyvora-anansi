@@ -27,5 +27,8 @@ jobs:
       - name: Test
         run: go test ./... -count=1 -timeout 60s
 
+      - name: Test with race detector
+        run: go test -race ./... -count=1 -timeout 120s
+
       - name: Vet
         run: go vet ./...

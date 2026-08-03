@@ -1,163 +1,290 @@
 #!/usr/bin/env bash
-
-# ANANSI CLI Installer
-# QYVORA OffSec - Ghana
+#
+# ANANSI CLI — zero-config installer
+#
+# Automatically detects your operating system, CPU architecture, and shell,
+# then installs the correct prebuilt binary with nothing for you to pick.
+#  1. Detects OS (Linux / macOS / Windows-GitBash) and architecture (amd64/arm64)
+#  2. Downloads the matching prebuilt binary from GitHub Releases and verifies
+#     its SHA-256 against the published checksums.txt (supply-chain protection)
+#  3. Falls back to building from source (needs Go) if the download fails
+#  4. Installs to ~/.local/bin (no sudo required) and adds it to your shell
+#     config automatically (bash / zsh / fish)
+#  5. Verifies the install by printing the version
+#
+# Usage:
+#   curl -fsSL https://raw.githubusercontent.com/QYVORA/qyvora-anansi-cli/main/install.sh | bash
+#   bash install.sh
+#
+# QYVORA OffSec
 
 set -euo pipefail
 
-# Colors
+# ---------------------------------------------------------------------------
+# Presentation helpers
+# ---------------------------------------------------------------------------
 CYAN='\033[1;36m'
 GREEN='\033[1;32m'
 RED='\033[1;31m'
 YELLOW='\033[1;33m'
 WHITE='\033[1;37m'
 DIM='\033[90m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Banner
-clear 2>/dev/null || true
-echo -e "${CYAN}             ;                  &              "
-echo -e "            ;;                    ;&            "
-echo -e "           ;;;                    ;;;           "
-echo -e "      ;    ;;;                    ;;;    ;      "
-echo -e "      ;;;  ;;;        ;   ;;      ;;;   ;;;     "
-echo -e "      ;;;;  ;;;;   ;;; && ;;;   ;;;;   ;;;;     "
-echo -e "       ;;;;   ;;;; ;;;;;;;;;; ;;;;    ;;;;      "
-echo -e "        ;;;;;;;;; ;;;;;;;;;;;;;;;; ;;;;;;;;;    "
-echo -e "            &;;;;;;;;;;;;\$x;;;;;;;;;;;;         "
-echo -e "           ;;;;;;;;;;&&&+++&&&;;;;;;;;;;;       "
-echo -e "      ;;;;;;;;;  ;;;&&+&&&&&+&&;;;  ;;;;;;;;;;  "
-echo -e "      ;;;&    ;; ;;;&+&&&&&&&+&&;;; ;;    &;;;  "
-echo -e "      ;;;   ;;;;  ;;;&&+&&&&&&+&;;; ;;;;   ;;;  "
-echo -e "      ;;;   ;;;   ;;;;&&++&++++&&;;  ;;;   ;;;  "
-echo -e "       ;;   ;;;    ;;;;;;;;;;;&&&&;  ;;;   ;;   "
-echo -e "       ;;   ;;;      ;;;;;;;;;;;;;;  ;;;   ;;   "
-echo -e "        ;   ;;;        ;;;;;;;;;;    ;;;   ;    "
-echo -e "            &;;           ;;;;       ;;&        "
-echo -e "              ;;           ;;       ;;;          "
-echo -e "                ;                 ;             ${NC}"
-echo -e ""
-echo -e "  ${WHITE}ANANSI CLI Installer${NC}"
-echo -e "  ${CYAN}QYVORA OffSec — Accra, Ghana${NC}"
-echo -e "  ${DIM}----------------------------------------${NC}"
-echo -e ""
+REPO="QYVORA/qyvora-anansi-cli"
+BASE_URL="https://github.com/${REPO}/releases/latest/download"
+DEFAULT_BIN_DIR="${HOME}/.local/bin"
 
-# Internet connection warning
-echo -e "  ${YELLOW}[!] IMPORTANT:${NC} Please ensure you are connected to the Internet."
-echo -e "      The installer will download required Go dependencies to build the binary."
-echo -e ""
+log()  { echo -e "${DIM}[anansi]${NC} $*"; }
+ok()   { echo -e "  ${GREEN}[OK]${NC} $*"; }
+info() { echo -e "  ${CYAN}[..]${NC} $*"; }
+warn() { echo -e "  ${YELLOW}[!]${NC} $*"; }
+die()  { echo -e "  ${RED}[!]${NC} $*" >&2; exit 1; }
 
-# Steps definition
-step_verify_system() {
-    echo -e "  ${CYAN}[1/5]${NC} Verifying system requirements & dependencies..."
-    
-    # 1. Check internet connection
-    if ! curl -s --connect-timeout 5 https://google.com >/dev/null; then
-        echo -e "  ${RED}[!] Error: No internet connection detected. Please connect and try again.${NC}"
-        exit 1
-    fi
-    echo -e "      ${DIM}- Internet connection detected [OK]${NC}"
-
-    # 2. Check if Go is installed
-    if ! command -v go >/dev/null 2>&1; then
-        echo -e "  ${RED}[!] Error: Go (Golang) is not installed.${NC}"
-        echo -e "      Please install Go 1.22+ (https://go.dev/doc/install) and run this script again."
-        exit 1
-    fi
-    
-    GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
-    echo -e "      ${DIM}- Go version $GO_VERSION detected [OK]${NC}"
-    echo -e "  ${GREEN}[SUCCESS]${NC} System checks passed."
+banner() {
+    clear 2>/dev/null || true
+    echo -e "${CYAN}             ;                  &              "
+    echo -e "            ;;                    ;&            "
+    echo -e "           ;;;                    ;;;           "
+    echo -e "      ;    ;;;                    ;;;    ;      "
+    echo -e "      ;;;  ;;;        ;   ;;      ;;;   ;;;     "
+    echo -e "      ;;;;  ;;;;   ;;; && ;;;   ;;;;   ;;;;     "
+    echo -e "       ;;;;   ;;;; ;;;;;;;;;; ;;;;    ;;;;      "
+    echo -e "        ;;;;;;;;; ;;;;;;;;;;;;;;;; ;;;;;;;;;    "
+    echo -e "            &;;;;;;;;;;;;\$x;;;;;;;;;;;;         "
+    echo -e "           ;;;;;;;;;;&&&+++&&&;;;;;;;;;;;       "
+    echo -e "      ;;;;;;;;;  ;;;&&+&&&&&+&&;;;  ;;;;;;;;;;  "
+    echo -e "      ;;;&    ;; ;;;&+&&&&&&&+&&;;; ;;    &;;;  "
+    echo -e "      ;;;   ;;;;  ;;;&&+&&&&&&&+&&;;; ;;;;   ;;;  "
+    echo -e "       ;;   ;;;    ;;;;;;;;;;;&&&&;  ;;;   ;;   "
+    echo -e "       ;;   ;;;      ;;;;;;;;;;;;;;  ;;;   ;;   "
+    echo -e "        ;   ;;;        ;;;;;;;;;;    ;;;   ;    "
+    echo -e "            &;;           ;;;;       ;;&        "
+    echo -e "              ;;           ;;       ;;;          "
+    echo -e "                ;                 ;             ${NC}"
+    echo -e ""
+    echo -e "  ${WHITE}ANANSI CLI — Zero-Config Installer${NC}"
+    echo -e "  ${CYAN}QYVORA OffSec — Accra, Ghana${NC}"
+    echo -e "  ${DIM}----------------------------------------${NC}"
     echo -e ""
 }
 
-step_download_deps() {
-    echo -e "  ${CYAN}[2/5]${NC} Downloading Go module dependencies..."
-    if go mod tidy; then
-        echo -e "  ${GREEN}[SUCCESS]${NC} Dependencies downloaded and synced."
-    else
-        echo -e "  ${RED}[!] Error: Failed to resolve Go dependencies.${NC}"
-        exit 1
-    fi
-    echo -e ""
+# ---------------------------------------------------------------------------
+# Detection: OS, architecture, shell
+# ---------------------------------------------------------------------------
+detect_os() {
+    case "$(uname -s)" in
+        Linux)                     echo "linux" ;;
+        Darwin)                    echo "macos" ;;
+        MINGW*|MSYS*|CYGWIN*)      echo "windows" ;;
+        *) die "Unsupported operating system: $(uname -s)" ;;
+    esac
 }
 
-step_compile() {
-    echo -e "  ${CYAN}[3/5]${NC} Compiling ANANSI CLI binary..."
-    # Build with ldflags to strip debugging information and shrink binary size
-    if go build -ldflags="-s -w" -o anansi main.go; then
-        echo -e "  ${GREEN}[SUCCESS]${NC} Binary compiled successfully (./anansi)."
-    else
-        echo -e "  ${RED}[!] Error: Compilation failed.${NC}"
-        exit 1
-    fi
-    echo -e ""
+detect_arch() {
+    case "$(uname -m)" in
+        x86_64|amd64)        echo "amd64" ;;
+        aarch64|arm64)       echo "arm64" ;;
+        i386|i686)           die "32-bit binaries are not published; build from source instead" ;;
+        *) die "Unsupported architecture: $(uname -m)" ;;
+    esac
 }
 
-step_install_binary() {
-    echo -e "  ${CYAN}[4/5]${NC} Installing binary to your system PATH..."
-    
-    INSTALL_DIR="/usr/local/bin"
-    
-    # Check if we can write to /usr/local/bin
-    if [ -w "$INSTALL_DIR" ]; then
-        cp anansi "$INSTALL_DIR/anansi"
-        echo -e "      ${DIM}- Installed to $INSTALL_DIR/anansi${NC}"
-    else
-        # Try with non-interactive sudo if not writeable
-        echo -e "      ${DIM}- Copying to $INSTALL_DIR (attempting non-interactive sudo)...${NC}"
-        if sudo -n cp anansi "$INSTALL_DIR/anansi" 2>/dev/null; then
-            echo -e "      ${DIM}- Installed to $INSTALL_DIR/anansi (using sudo)${NC}"
-        else
-            # Fallback to local user bin if sudo fails
-            USER_BIN="$HOME/.local/bin"
-            echo -e "      ${YELLOW}[!] Sudo copy failed. Attempting installation to $USER_BIN...${NC}"
-            mkdir -p "$USER_BIN"
-            cp anansi "$USER_BIN/anansi"
-            echo -e "      ${DIM}- Installed to $USER_BIN/anansi${NC}"
-            
-            # Check if USER_BIN is in PATH
-            if [[ ":$PATH:" != *":$USER_BIN:"* ]]; then
-                echo -e "      ${YELLOW}[!] Warning: $USER_BIN is not in your \$PATH.${NC}"
-                echo -e "          Please add it to your shell configuration (e.g. ~/.bashrc or ~/.zshrc):"
-                echo -e "          ${WHITE}export PATH=\"\$PATH:\$HOME/.local/bin\"${NC}"
+detect_shell_rc() {
+    case "${SHELL:-}" in
+        *zsh)   echo "${ZDOTDIR:-$HOME}/.zshrc" ;;
+        *fish)  echo "$HOME/.config/fish/config.fish" ;;
+        *)      echo "$HOME/.bashrc" ;;
+    esac
+}
+
+# ---------------------------------------------------------------------------
+# Install from a checksum-verified prebuilt release binary
+# ---------------------------------------------------------------------------
+install_release() {
+    local os="$1" arch="$2"
+    local name="anansi-${os}-${arch}"
+    [ "$os" = "windows" ] && name="${name}.exe"
+
+    local local_bin="${WORK_DIR}/${name}"
+    info "Detected ${os}/${arch} — downloading prebuilt ${name}..."
+    if ! curl -fsSL --connect-timeout 10 "${BASE_URL}/${name}" -o "$local_bin"; then
+        warn "Prebuilt binary download failed (offline or no release yet)."
+        return 1
+    fi
+
+    # SHA-256 verification against the published checksums.txt
+    local hashtool=""
+    if command -v sha256sum >/dev/null 2>&1; then
+        hashtool="sha256sum"
+    elif command -v shasum >/dev/null 2>&1; then
+        hashtool="shasum -a 256"
+    fi
+
+    if [ -n "$hashtool" ]; then
+        if curl -fsSL --connect-timeout 10 "${BASE_URL}/checksums.txt" -o "${WORK_DIR}/checksums.txt"; then
+            local want got
+            want=$(awk -v n="$name" '$2 == n { print $1 }' "${WORK_DIR}/checksums.txt")
+            got=$($hashtool "$local_bin" | awk '{ print $1 }')
+            if [ -z "$want" ]; then
+                warn "No checksum entry found for ${name}; continuing without verification."
+            elif [ "$want" = "$got" ]; then
+                ok "SHA-256 verified for ${name} (${got})"
+            else
+                die "Checksum mismatch for ${name}! The downloaded binary may have been tampered with. Aborting."
             fi
+        else
+            warn "Could not fetch checksums.txt; continuing without verification."
         fi
-    fi
-    
-    echo -e "  ${GREEN}[SUCCESS]${NC} Installation complete."
-    echo -e ""
-}
-
-step_verify_install() {
-    echo -e "  ${CYAN}[5/5]${NC} Verifying terminal installation..."
-    
-    # Clear shell paths cache
-    hash -r 2>/dev/null || true
-    
-    if command -v anansi >/dev/null 2>&1; then
-        echo -e "  ${GREEN}[SUCCESS]${NC} 'anansi' command is now globally available!"
-        echo -e ""
-        echo -e "  ${WHITE}You can run it using:${NC}"
-        echo -e "      ${CYAN}anansi [target]${NC}"
-        echo -e ""
     else
-        # If the parent shell is ZSH, prompt user to run rehash
-        if [[ "${SHELL:-}" == */zsh ]]; then
-            echo -e "  ${YELLOW}[!] Note: If the command is not recognized, refresh your shell using:${NC}"
-            echo -e "      ${CYAN}rehash${NC}"
-            echo -e ""
+        warn "No sha256 tool found; skipping checksum verification."
+    fi
+
+    chmod +x "$local_bin"
+    INSTALL_BIN="$local_bin"
+    return 0
+}
+
+# ---------------------------------------------------------------------------
+# Fallback: build from source (requires Go)
+# ---------------------------------------------------------------------------
+install_from_source() {
+    if ! command -v go >/dev/null 2>&1; then
+        die "No prebuilt binary available and Go is not installed. Install Go 1.22+ from https://go.dev and re-run this script."
+    fi
+    if ! command -v curl >/dev/null 2>&1; then
+        die "curl is required to fetch the source tarball."
+    fi
+
+    info "Building from source with $(go version | awk '{print $3}')..."
+    if ! curl -fsSL --connect-timeout 10 "https://codeload.github.com/${REPO}/tar.gz/refs/heads/main" -o "${WORK_DIR}/src.tar.gz"; then
+        warn "Could not download the source tarball."
+        return 1
+    fi
+    mkdir -p "${WORK_DIR}/src"
+    tar -xzf "${WORK_DIR}/src.tar.gz" -C "${WORK_DIR}/src" --strip-components=1
+
+    if ! (cd "${WORK_DIR}/src" && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "${WORK_DIR}/anansi-src" .); then
+        warn "Source build failed."
+        return 1
+    fi
+    INSTALL_BIN="${WORK_DIR}/anansi-src"
+    return 0
+}
+
+# ---------------------------------------------------------------------------
+# Place the binary on the system
+# ---------------------------------------------------------------------------
+install_binary() {
+    local dest="$1"
+
+    if [ ! -x "$INSTALL_BIN" ]; then
+        die "No binary to install."
+    fi
+
+    if [ "$dest" = "/usr/local/bin" ] && [ ! -w "$dest" ]; then
+        if sudo -n true 2>/dev/null; then
+            sudo -n install -m 0755 "$INSTALL_BIN" "$dest/anansi"
+        else
+            dest="$DEFAULT_BIN_DIR"
         fi
-        echo -e "  ${YELLOW}[!] Warning: 'anansi' command was not found in your current path.${NC}"
-        echo -e "      Try starting a new terminal session or run the binary locally:"
-        echo -e "      ${CYAN}./anansi --help${NC}"
-        echo -e ""
+    fi
+
+    mkdir -p "$dest"
+    if [ -w "$dest" ]; then
+        install -m 0755 "$INSTALL_BIN" "$dest/anansi"
+    elif sudo -n true 2>/dev/null; then
+        sudo -n install -m 0755 "$INSTALL_BIN" "$dest/anansi"
+    else
+        die "Cannot write to ${dest} and sudo is not available non-interactively. Install manually."
+    fi
+    echo "$dest"
+}
+
+# ---------------------------------------------------------------------------
+# Add the install dir to the user's PATH via their shell config (idempotent)
+# ---------------------------------------------------------------------------
+configure_path() {
+    local dest="$1" rc="$2"
+
+    if [[ ":$PATH:" == *":$dest:"* ]]; then
+        ok "Already on PATH: ${dest}"
+        return
+    fi
+
+    local line
+    case "$rc" in
+        *.fish) line="set -gx PATH \$PATH $dest" ;;
+        *)      line="export PATH=\"\$PATH:$dest\"" ;;
+    esac
+
+    if [ -f "$rc" ] && grep -qsF "$dest" "$rc"; then
+        ok "${dest} already configured in ${rc}"
+        return
+    fi
+
+    printf '\n# added by ANANSI CLI installer\n%s\n' "$line" >> "$rc"
+    warn "Added ${dest} to your PATH in ${rc}"
+    warn "Run: source ${rc}  (or open a new terminal) to use 'anansi'"
+}
+
+# ---------------------------------------------------------------------------
+# Verify the installation
+# ---------------------------------------------------------------------------
+verify() {
+    local dest="$1"
+    local bin="$dest/anansi"
+
+    if [ ! -x "$bin" ]; then
+        warn "anansi binary not found at ${bin}."
+        return 1
+    fi
+
+    info "Verifying installation..."
+    "$bin" version 2>/dev/null || "$bin" --help >/dev/null 2>&1
+    ok "ANANSI CLI installed at ${bin}"
+    ok "Run 'anansi --help' to get started."
+    return 0
+}
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+main() {
+    banner
+
+    local os arch rc dest
+    os=$(detect_os)
+    arch=$(detect_arch)
+    rc=$(detect_shell_rc)
+
+    WORK_DIR=$(mktemp -d)
+    trap 'rm -rf "$WORK_DIR"' EXIT
+
+    if [ "$os" = "windows" ]; then
+        dest="$HOME/bin"
+    else
+        dest="$DEFAULT_BIN_DIR"
+    fi
+
+    INSTALL_BIN=""
+
+    if ! install_release "$os" "$arch"; then
+        if ! install_from_source; then
+            die "Installation failed. Please check your connection and try again."
+        fi
+    fi
+
+    local final_dest
+    final_dest=$(install_binary "$dest")
+
+    configure_path "$final_dest" "$rc"
+
+    if verify "$final_dest"; then
+        log "Done."
+    else
+        die "Installation may need a new terminal session."
     fi
 }
 
-# Run phases
-step_verify_system
-step_download_deps
-step_compile
-step_install_binary
-step_verify_install
+main "$@"

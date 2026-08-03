@@ -45,7 +45,8 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: '0'
         run: |
-          go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" \
+          go build -trimpath \
+            -ldflags="-s -w -X github.com/QYVORA/qyvora-anansi-cli/cmd.Version=${{ github.ref_name }}" \
             -o ${{ matrix.name }} .
 
       - name: Upload artifact
@@ -64,8 +65,15 @@ jobs:
           path: ./binaries
           merge-multiple: true
 
+      - name: Generate checksums.txt
+        run: |
+          cd ./binaries
+          sha256sum ./* > checksums.txt
+          cat checksums.txt
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ./binaries/*
+          files: |
+            ./binaries/*
           generate_release_notes: true
