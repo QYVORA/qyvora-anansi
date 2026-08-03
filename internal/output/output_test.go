@@ -1,6 +1,9 @@
 package output
 
 import (
+	"bytes"
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 )
@@ -83,3 +86,48 @@ func TestDefaultUA(t *testing.T) {
 		t.Fatal("DefaultUA should not be empty")
 	}
 }
+
+func TestReportJSONIncludesTechResults(t *testing.T) {
+	report := &Report{
+		Target: "example.com",
+		TechResults: []TechResult{
+			{
+				URL:        "https://example.com",
+				Stack:      "WordPress",
+				Version:    "6.0.2",
+				DetectedBy: "generator meta tag",
+				Components: []string{"plugin:elementor@3.10.0"},
+				Findings: []Finding{
+					{Severity: Critical, Title: "Test Finding", AffectedAsset: "https://example.com"},
+				},
+			},
+		},
+	}
+	var buf bytes.Buffer
+	old := json.NewEncoder(&buf)
+	if err := old.Encode(report); err != nil {
+		t.Fatalf("encoding report: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "TechResults") || !strings.Contains(out, "WordPress") || !strings.Contains(out, "6.0.2") {
+		t.Fatalf("JSON output missing tech results: %s", out)
+	}
+}
+
+func TestTechTableRenders(_ *testing.T) {
+	r := New("terminal", false)
+	r.TechTable([]TechResult{
+		{
+			URL:        "https://example.com",
+			Stack:      "WordPress",
+			Version:    "6.0.2",
+			DetectedBy: "generator meta tag",
+			Components: []string{"plugin:elementor@3.10.0"},
+			Findings: []Finding{
+				{Severity: High, Title: "Outdated", AffectedAsset: "https://example.com", Remediation: "upgrade"},
+			},
+		},
+	})
+	r.TechTable(nil)
+}
+

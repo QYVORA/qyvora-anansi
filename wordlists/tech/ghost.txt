@@ -1,0 +1,10 @@
+# Ghost-specific deep audit paths.
+# Format: <path>|<title>|<severity>|<bodyMatch (optional, case-insensitive)>|<locationMatch (optional, checked on 3xx Location header)>
+/ghost/|Ghost Admin Panel Exposed|MEDIUM|ghost|
+/ghost/api/v3/admin/|Ghost Admin API Exposed|HIGH|
+/ghost/api/content/|Ghost Content API Exposed|INFO|posts|
+/ghost/debug/|Ghost Debug Endpoint Exposed|HIGH|debug|
+/ghost/settings/|Ghost Settings Endpoint Exposed|MEDIUM|settings|
+/sitemap.xml|Ghost Sitemap Exposed|INFO||
+/rss/|Ghost RSS Feed Exposed|INFO||
+/robots.txt|Ghost Crawl Policy|INFO||

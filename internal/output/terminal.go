@@ -345,6 +345,41 @@ func (r *Renderer) printFinding(f Finding) {
 	}
 }
 
+func (r *Renderer) TechTable(results []TechResult) {
+	if r.isQuiet() {
+		return
+	}
+	if len(results) == 0 {
+		dim.Println("  [*] no application stacks detected")
+		return
+	}
+
+	for _, tr := range results {
+		stackStr := accentDim.Sprint(tr.Stack)
+		if tr.Version != "" {
+			stackStr = accentDim.Sprint(tr.Stack + " " + tr.Version)
+		}
+
+		detected := ""
+		if tr.DetectedBy != "" {
+			detected = fmt.Sprintf(" (%s)", dim.Sprint(tr.DetectedBy))
+		}
+
+		components := ""
+		if len(tr.Components) > 0 {
+			components = fmt.Sprintf("  [%s]", strings.Join(tr.Components, ", "))
+		}
+
+		white.Printf("  [+] %s%s\n", stackStr, detected)
+		dim.Printf("      %s%s\n", tr.URL, components)
+
+		for _, f := range tr.Findings {
+			r.printFinding(f)
+		}
+	}
+	fmt.Println()
+}
+
 func (r *Renderer) OSINTTable(results []OSINTResult) {
 	if r.isQuiet() {
 		return
@@ -927,6 +962,38 @@ const htmlReportTemplate = `<!DOCTYPE html>
                     </tbody>
                 </table>
             </div>
+            <!-- Tech-Stack Deep Audit -->
+            <div class="card">
+                <h2>Tech-Stack Deep Audit ({{len .Report.TechResults}})</h2>
+                {{if .Report.TechResults}}
+                    {{range .Report.TechResults}}
+                        <div style="margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
+                            <div style="font-weight: 600; color: var(--accent);">
+                                {{.Stack}}{{if .Version}} <span class="mono" style="font-size: 0.85rem;">{{.Version}}</span>{{end}}
+                            </div>
+                            <div class="finding-asset">{{.URL}}</div>
+                            {{if .DetectedBy}}<div style="font-size: 0.75rem; color: var(--text-dim);">via {{.DetectedBy}}</div>{{end}}
+                            {{if .Components}}
+                                <div class="mono" style="font-size: 0.78rem; color: var(--text-dim);">{{range $i, $c := .Components}}{{if $i}}, {{end}}{{$c}}{{end}}</div>
+                            {{end}}
+                            {{range .Findings}}
+                                <div class="finding-item {{html (lower .Severity)}}" style="margin-top: 0.5rem;">
+                                    <div class="finding-hdr">
+                                        <span class="finding-title">{{.Title}}</span>
+                                        <span class="finding-badge {{html (lower .Severity)}}">{{.Severity}}</span>
+                                    </div>
+                                    <div class="finding-asset">{{.AffectedAsset}}</div>
+                                    <div class="finding-desc">{{.Description}}</div>
+                                    {{if .Evidence}}<div class="finding-evidence">{{.Evidence}}</div>{{end}}
+                                    {{if .Remediation}}<div style="font-size: 0.85rem; margin-top: 0.4rem; color: var(--text-dim);">Fix: {{.Remediation}}</div>{{end}}
+                                </div>
+                            {{end}}
+                        </div>
+                    {{end}}
+                {{else}}
+                    <p style="color: var(--text-dim);">No application stacks detected.</p>
+                {{end}}
+            </div>
         </div>
 
         <div class="sidebar">
@@ -1107,5 +1174,36 @@ func (r *Renderer) renderMarkdown(report *Report) {
 		}
 	}
 	fmt.Println()
+
+	// Tech-Stack Deep Audit
+	fmt.Println("## Tech-Stack Deep Audit")
+	if len(report.TechResults) == 0 {
+		fmt.Println("No application stacks detected.")
+	} else {
+		for _, tr := range report.TechResults {
+			version := ""
+			if tr.Version != "" {
+				version = " " + tr.Version
+			}
+			fmt.Printf("### %s%s\n", tr.Stack, version)
+			fmt.Printf("- **URL:** `%s`\n", tr.URL)
+			if tr.DetectedBy != "" {
+				fmt.Printf("- **Version via:** %s\n", tr.DetectedBy)
+			}
+			if len(tr.Components) > 0 {
+				fmt.Printf("- **Components:** `%s`\n", strings.Join(tr.Components, ", "))
+			}
+			for _, f := range tr.Findings {
+				fmt.Printf("- **[%s] %s** — `%s`\n", f.Severity, f.Title, f.AffectedAsset)
+				if f.Evidence != "" {
+					fmt.Printf("  - Evidence: `%s`\n", f.Evidence)
+				}
+				if f.Remediation != "" {
+					fmt.Printf("  - Fix: %s\n", f.Remediation)
+				}
+			}
+			fmt.Println()
+		}
+	}
 }
 

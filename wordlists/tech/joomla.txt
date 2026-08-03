@@ -1,0 +1,11 @@
+# Joomla-specific deep audit paths.
+# Format: <path>|<title>|<severity>|<bodyMatch (optional, case-insensitive)>
+/administrator/|Joomla Admin Panel Exposed|MEDIUM|Joomla
+/README.txt|Joomla README Exposed (Version Disclosure)|MEDIUM|Joomla
+/administrator/manifests/files/joomla.xml|Joomla Version Manifest Exposed|INFO|<version>
+/configuration.php.bak|Exposed Joomla Configuration Backup|CRITICAL|
+/administrator/logs/error.php|Exposed Joomla Error Log|HIGH|Fatal
+/images/|Joomla Images Directory Listing|INFO|Index of
+/tmp/|Joomla Tmp Directory Listing|INFO|Index of
+/language/en-GB/|Joomla Language Directory Listing|INFO|Index of
+/installation/|Joomla Installation Directory Present|HIGH|Joomla

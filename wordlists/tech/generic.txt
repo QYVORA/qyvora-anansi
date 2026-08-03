@@ -1,0 +1,76 @@
+# Generic framework / web-server deep audit paths (checked on every live host).
+# Format: <path>|<title>|<severity>|<bodyMatch (optional, case-insensitive)>
+/.env|Exposed Environment File|CRITICAL|
+/.env.local|Exposed Environment File (Local)|CRITICAL|
+/.env.production|Exposed Environment File (Production)|CRITICAL|
+/.git/HEAD|Exposed Git Repository|CRITICAL|ref:
+/.git/config|Exposed Git Config|CRITICAL|repositoryformatversion
+/.svn/entries|Exposed SVN Repository|HIGH|
+/.hg/hgrc|Exposed Mercurial Config|HIGH|
+/.DS_Store|Exposed .DS_Store File|MEDIUM|
+/.htaccess|Exposed .htaccess|MEDIUM|
+/.htpasswd|Exposed .htpasswd|CRITICAL|
+/server-status|Apache Server-Status Exposed|HIGH|Apache Server Status
+/server-info|Apache Server-Info Exposed|HIGH|Apache Server Information
+/actuator|Spring Boot Actuator Exposed|HIGH|
+/actuator/env|Spring Boot Actuator Env Exposed (Secrets Disclosure)|CRITICAL|
+/actuator/heapdump|Spring Boot Actuator Heapdump Exposed|CRITICAL|
+/actuator/health|Spring Boot Actuator Health|INFO|status
+/actuator/loggers|Spring Boot Actuator Loggers Exposed|HIGH|loggers
+/_profiler/|Symfony Profiler Exposed|HIGH|
+/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php|PHPUnit RCE Endpoint (CVE-2017-9841)|CRITICAL|
+/config.php.bak|Exposed Config Backup|CRITICAL|
+/config.inc.php|Exposed Config (inc)|CRITICAL|
+/configuration.php|Exposed Configuration File|CRITICAL|
+/settings.php|Exposed Settings File|HIGH|
+/config.yml|Exposed Config YAML|HIGH|
+/database.yml|Exposed Database Config|CRITICAL|
+/composer.json|Composer Dependencies Exposed|INFO|"name"
+/composer.lock|Composer Lockfile Exposed|INFO|"name"
+/package.json|Package.json Exposed|MEDIUM|"name"
+/package-lock.json|Package Lockfile Exposed|INFO|"name"
+/vendor/composer/installed.json|Composer Installed Packages Exposed|INFO|"name"
+/phpinfo.php|Exposed PHPInfo|HIGH|phpinfo
+/info.php|Exposed PHP Info|HIGH|phpinfo
+/test.php|Exposed Test Script|INFO|phpinfo
+/backup.zip|Exposed Backup Archive|HIGH|
+/backup.tar.gz|Exposed Backup Archive|HIGH|
+/backup.sql|Exposed Database Backup|CRITICAL|
+/dump.sql|Exposed Database Dump|CRITICAL|
+/db.sql|Exposed Database Dump|CRITICAL|
+/www.zip|Exposed Site Archive|HIGH|
+/site.zip|Exposed Site Archive|HIGH|
+/web.zip|Exposed Site Archive|HIGH|
+/error_log|Exposed Error Log|HIGH|
+/error.log|Exposed Error Log|HIGH|
+/phpmyadmin/|phpMyAdmin Panel Exposed|HIGH|phpMyAdmin
+/adminer.php|Adminer Panel Exposed|HIGH|Adminer
+/api-docs|API Documentation Exposed|INFO|
+/swagger-ui.html|Swagger UI Exposed|INFO|swagger
+/swagger/|Swagger UI Exposed|INFO|swagger
+/openapi.json|OpenAPI Spec Exposed|INFO|
+/v2/api-docs|API Docs (v2) Exposed|INFO|
+/v3/api-docs|API Docs (v3) Exposed|INFO|
+/graphql|GraphQL Endpoint Exposed|HIGH|graphql
+/graphiql|GraphiQL IDE Exposed|HIGH|graphiql
+/console|Console Endpoint Exposed|HIGH|
+/shell|Shell Endpoint Exposed|CRITICAL|
+/cgi-bin/|CGI-Bin Directory Listing|INFO|Index of
+/crossdomain.xml|Crossdomain Policy File|INFO|allow-access-from
+/.npmrc|Exposed NPM Config|MEDIUM|
+/.pypirc|Exposed PyPI Config|MEDIUM|
+/.dockerenv|Docker Environment Detected|INFO|
+/.well-known/security.txt|Security Contact File|INFO|Contact
+/.well-known/assetlinks.json|Asset Links File|INFO|
+/.well-known/apple-app-site-association|Apple App Site Association|INFO|
+/robots.txt|Robots.txt Crawl Policy|INFO|
+/sitemap.xml|Sitemap Exposed|INFO|
+/README.md|README Exposed|INFO|
+/docker-compose.yml|Docker Compose Exposed|HIGH|
+/Dockerfile|Dockerfile Exposed|HIGH|
+/Makefile|Makefile Exposed|INFO|
+/travis.yml|Travis CI Config Exposed|INFO|
+/backup/|Backup Directory Listing|HIGH|Index of
+/uploads/|Uploads Directory Listing|HIGH|Index of
+/tmp/|Tmp Directory Listing|HIGH|Index of
+/logs/|Logs Directory Listing|HIGH|Index of

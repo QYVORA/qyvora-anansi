@@ -67,6 +67,7 @@ type Report struct {
 	HeaderResults []HeaderResult
 	Findings      []Finding
 	OSINTResults  []OSINTResult
+	TechResults   []TechResult
 }
 
 // SubdomainResult holds the outcome of a single subdomain resolution attempt.
@@ -126,6 +127,19 @@ type HeaderResult struct {
 	Findings []Finding
 	Success  bool
 	Error    string
+}
+
+// TechResult records the detected application stack for a single URL: the
+// identified platform, its version (when discoverable), how the version was
+// identified, detected components (e.g. WordPress plugins), and any
+// version-specific or misconfiguration findings derived from the deep audit.
+type TechResult struct {
+	URL        string
+	Stack      string
+	Version    string
+	DetectedBy string
+	Components []string
+	Findings   []Finding
 }
 
 // randomUserAgents is a pool of realistic User-Agent strings used when

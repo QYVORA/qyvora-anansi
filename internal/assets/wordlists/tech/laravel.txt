@@ -1,0 +1,20 @@
+# Laravel/Symfony PHP-framework deep audit paths.
+# Format: <path>|<title>|<severity>|<bodyMatch (optional, case-insensitive)>|<locationMatch (optional, checked on 3xx Location header)>
+/.env|Exposed Laravel Environment File|CRITICAL|APP_KEY|
+/telescope|Laravel Telescope Exposed|HIGH|Telescope|
+/telescope/requests|Laravel Telescope Requests Exposed|HIGH|Telescope|
+/horizon|Laravel Horizon Dashboard Exposed|HIGH|Horizon|
+/_ignition/health-check|Laravel Ignition Health Check|INFO|OK|
+/_ignition/execute-solution|Laravel Ignition RCE Endpoint (CVE-2021-3129)|CRITICAL|execute-solution|
+/storage/logs/laravel.log|Exposed Laravel Log|HIGH|laravel|
+/storage/framework/sessions/|Laravel Session Directory Listing|HIGH|Index of|
+/storage/|Laravel Storage Directory Listing|INFO|Index of|
+/debugbar/|Laravel Debugbar Exposed|HIGH|debugbar|
+/vendor/|Laravel Vendor Directory Listing|INFO|Index of|
+/api|Laravel API Route Accessible|INFO||
+/login|Laravel Login Exposed|LOW|
+/register|Laravel Registration Open|MEDIUM|
+/_profiler/|Symfony Profiler Exposed|HIGH||
+/_profiler/open|Symfony Profiler Open Endpoint|CRITICAL|profiler|
+/_wdt|Symfony Web Debug Toolbar Exposed|INFO|wdt|
+/var/log/prod.log|Exposed Symfony Log|HIGH|symfony|

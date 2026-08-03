@@ -17,6 +17,17 @@ func TestLoadData(t *testing.T) {
 		{"wordlists/headers/rules.txt", 1},
 		{"wordlists/takeover/fingerprints.txt", 1},
 		{"wordlists/probe/tech_headers.txt", 1},
+		{"wordlists/tech/fingerprints.txt", 100},
+		{"wordlists/tech/vulns.txt", 40},
+		{"wordlists/tech/wordpress.txt", 1},
+		{"wordlists/tech/drupal.txt", 1},
+		{"wordlists/tech/joomla.txt", 1},
+		{"wordlists/tech/generic.txt", 20},
+		{"wordlists/tech/magento.txt", 1},
+		{"wordlists/tech/ghost.txt", 1},
+		{"wordlists/tech/moodle.txt", 1},
+		{"wordlists/tech/mediawiki.txt", 1},
+		{"wordlists/tech/laravel.txt", 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {

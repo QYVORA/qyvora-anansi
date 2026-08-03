@@ -11,8 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fatih/color"
-	"github.com/spf13/cobra"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/discovery"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/headers"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/osint"
@@ -20,23 +18,26 @@ import (
 	"github.com/QYVORA/qyvora-anansi-cli/internal/paths"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/probe"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/takeover"
+	"github.com/QYVORA/qyvora-anansi-cli/internal/techstack"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/tls"
+	"github.com/fatih/color"
+	"github.com/spf13/cobra"
 )
 
 var (
-	flagDeep        bool
-	flagOut         string
-	flagOutputFile  string
-	flagTimeout     int
-	flagModules     []string
-	flagWordlist    string
-	flagThreads     int
-	flagVerbose     bool
-	flagRecursive   bool
-	flagMutate      bool
-	flagDelay       int
-	flagPorts       []string
-	flagStealth     bool
+	flagDeep       bool
+	flagOut        string
+	flagOutputFile string
+	flagTimeout    int
+	flagModules    []string
+	flagWordlist   string
+	flagThreads    int
+	flagVerbose    bool
+	flagRecursive  bool
+	flagMutate     bool
+	flagDelay      int
+	flagPorts      []string
+	flagStealth    bool
 )
 
 // rootCmd is the main Cobra command.  It requires exactly one argument:
@@ -67,9 +68,9 @@ func init() {
 	rootCmd.Flags().BoolVar(&flagDeep, "deep", false, "Enable deep scan (larger wordlist, more path probing)")
 	rootCmd.Flags().StringVar(&flagOut, "out", "terminal", "Output format: terminal | json | markdown | html")
 	rootCmd.Flags().IntVar(&flagTimeout, "timeout", 5, "Per-request timeout in seconds")
-	rootCmd.Flags().StringSliceVar(&flagModules, "modules", []string{"discovery", "probe", "tls", "headers", "paths", "takeover", "osint"}, "Modules to run (comma-separated)")
+	rootCmd.Flags().StringSliceVar(&flagModules, "modules", []string{"discovery", "probe", "tls", "headers", "paths", "tech", "takeover", "osint"}, "Modules to run (comma-separated)")
 	rootCmd.Flags().StringVarP(&flagWordlist, "wordlist", "w", "", "Path to custom subdomain wordlist")
-	rootCmd.Flags().IntVarP(&flagThreads, "threads", "t", 50, "Number of concurrent threads")
+	rootCmd.Flags().IntVarP(&flagThreads, "threads", "t", 100, "Number of concurrent threads")
 	rootCmd.Flags().BoolVarP(&flagVerbose, "verbose", "v", false, "Show all results including not-found/failed items")
 	rootCmd.Flags().BoolVarP(&flagRecursive, "recursive", "r", false, "Enable recursive subdomain brute-force on resolved subdomains")
 	rootCmd.Flags().BoolVarP(&flagMutate, "mutate", "m", false, "Enable subdomain mutation brute-force based on resolved prefixes")
@@ -88,6 +89,24 @@ func hasModule(name string) bool {
 		}
 	}
 	return false
+}
+
+// dedupeFindings removes duplicate findings by title + affected asset.  The
+// paths and tech modules intentionally probe overlapping targets (e.g. /.env
+// and /.git/HEAD appear in both generic lists), so a final pass keeps the
+// report clean.
+func dedupeFindings(findings []output.Finding) []output.Finding {
+	seen := make(map[string]struct{}, len(findings))
+	out := make([]output.Finding, 0, len(findings))
+	for _, f := range findings {
+		key := f.Title + "\x00" + f.AffectedAsset
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, f)
+	}
+	return out
 }
 
 // runScan is the top-level scan orchestrator.  It runs each enabled module
@@ -206,17 +225,29 @@ func runScan(cmd *cobra.Command, args []string) error {
 		out.FindingsBlock("PATHS", pathFindings)
 	}
 
-	// -- PHASE 6: TAKEOVER -------------------------------------------------
+	// -- PHASE 6: TECH-STACK DEEP AUDIT ------------------------------
+	if hasModule("tech") && len(report.ProbeResults) > 0 {
+		out.PhaseHeader("06", "TECH-STACK", "CMS fingerprinting + version-specific vulnerability audit")
+		liveHosts := probe.LiveOnly(report.ProbeResults)
+		techResults := techstack.Run(out, liveHosts, flagTimeout, flagThreads, flagDelay, flagStealth)
+		report.TechResults = techResults
+		for _, tr := range techResults {
+			report.Findings = append(report.Findings, tr.Findings...)
+		}
+		out.TechTable(techResults)
+	}
+
+	// -- PHASE 7: TAKEOVER -------------------------------------------------
 	if hasModule("takeover") && len(report.Subdomains) > 0 {
-		out.PhaseHeader("06", "TAKEOVER", "dangling CNAME subdomain takeover detection")
+		out.PhaseHeader("07", "TAKEOVER", "dangling CNAME subdomain takeover detection")
 		takeoverFindings := takeover.Run(out, report.Subdomains, flagTimeout, flagThreads, flagDelay, flagStealth)
 		report.Findings = append(report.Findings, takeoverFindings...)
 		out.FindingsBlock("TAKEOVER", takeoverFindings)
 	}
 
-	// -- PHASE 7: OSINT ----------------------------------------------------
+	// -- PHASE 8: OSINT ----------------------------------------------------
 	if hasModule("osint") {
-		out.PhaseHeader("07", "OSINT", "organisation recon — emails, phones, WHOIS, employees")
+		out.PhaseHeader("08", "OSINT", "organisation recon — emails, phones, WHOIS, employees")
 		osintResults := osint.Run(out, report.ProbeResults, target, flagTimeout, flagThreads, flagDelay, flagStealth)
 		report.OSINTResults = osintResults
 		out.OSINTTable(osintResults)
@@ -224,6 +255,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 
 	// -- SUMMARY -----------------------------------------------------------
 	report.Duration = time.Since(startTime)
+	report.Findings = dedupeFindings(report.Findings)
 
 	if flagOutputFile != "" {
 		f, err := os.Create(flagOutputFile)
