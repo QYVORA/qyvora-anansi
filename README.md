@@ -85,16 +85,34 @@ By default, ANANSI filters out the noise and only displays **found** assets (e.g
 | 03 | **TLS** | Certificate expiry, SANs, protocol version, cipher, self-signed detection |
 | 04 | **HEADERS** | Missing security headers, CORS misconfigurations |
 | 05 | **PATHS** | Exposed files — `.env`, `.git`, configs, admin panels, backups, API docs |
-| 06 | **TAKEOVER** | Dangling CNAMEs pointing to unclaimed cloud services |
+| 06 | **TECH-STACK** | Deep audit of detected platforms — version detection, WordPress plugins/themes, XML-RPC, user enumeration, config backups, known-vulnerable version matching |
+| 07 | **TAKEOVER** | Dangling CNAMEs pointing to unclaimed cloud services |
+| 08 | **OSINT** | Emails, phone numbers, employees, WHOIS registrant data |
 
 ---
 
 ## Performance & Architecture
 
 - **Native Go DNS Resolver**: Bypasses slow `cgo`-blocked system lookups using pure Go goroutines.
+- **Shared Connection Pool**: A single process-wide HTTP transport with keep-alives is reused across every phase and every module, so TCP + TLS handshakes happen once per host instead of once per request.
+- **TTL DNS Cache**: Resolved subdomains are cached for 60s, so recursive/mutation/TLS-SAN phases never re-query the resolver for the same name.
+- **Fixed Worker Pools**: Paths, discovery, probe, and techstack all run on fixed worker pools (one goroutine per `--threads`, jobs pulled from a channel). No goroutine-per-job churn — even an 8,000+ rule path sweep stays at stable concurrency.
 - **Concurrent Probing**: HTTP Probes, TLS analyses, and Security Header checks are fully parallelized.
 - **Smart Takeover Filtering**: Targets only subdomains with verified dead CNAME records.
-- **Parallel Exposed Path Probing**: Custom 404 baselines fetched concurrently.
+- **Parallel Exposed Path Probing**: Custom 404 baselines fetched concurrently; the deep-audit module adds a soft-404 baseline so catch-all servers don't produce false positives.
+- **Version reuse**: the tech-stack module reads CMS versions from generator meta tags and static-asset query strings already present in the homepage body, and discovers WordPress plugins from the same body — minimising extra requests.
+- **robots.txt mining**: every live host's `robots.txt` Allow/Disallow entries are turned into extra path probes, surfacing intentionally-hidden directories for one extra request per host.
+
+## Tech-Stack Deep Audit
+
+When a host is fingerprinted as **WordPress, Drupal, Joomla, Magento, Ghost, Moodle, MediaWiki, Laravel**, or another platform, ANANSI descends that stack instead of stopping at the surface:
+
+- **Version detection** — generator meta tags, `/wp-links-opml.php`, `/feed/`, `/CHANGELOG.txt`, `joomla.xml`, `/magento_version`, MediaWiki `/api.php` siteinfo, Moodle `/login/index.php`, and static-asset `?ver=` strings.
+- **WordPress plugin/theme enumeration** — plugins are discovered from the homepage body and their stable versions read from `readme.txt`; Drupal modules, Joomla components, and MediaWiki extensions are enumerated the same way.
+- **Stack-specific probes** — `/xmlrpc.php`, `/?author=1` and REST user enumeration, `debug.log`, config backups (`wp-config.php.bak`, `settings.php.bak`, `configuration.php.bak`), Magento `app/etc/env.php`, Ghost admin API, Laravel Telescope/Horizon/Ignition RCE (CVE-2021-3129), MediaWiki `LocalSettings.php`, directory listings, login/admin panels.
+- **Known-vulnerable version matching** — detected versions are matched against a curated, CVE-backed table (`wordlists/tech/vulns.txt`) covering WordPress core, Drupal (Drupalgeddon), Joomla, Magento, Ghost, MediaWiki, Moodle, and high-value WordPress plugins such as Elementor, WP File Manager, Duplicator, Contact Form 7, Revolution Slider, and WooCommerce.
+
+Add your own fingerprints, path rules, and version ranges by editing the files under `wordlists/tech/`.
 
 ---
 
@@ -194,13 +212,13 @@ anansi target.com --out html > report.html
 | `--deep` | | false | Larger subdomain wordlist + more path probing rules |
 | `--out` | | terminal | Output format: `terminal` \| `json` \| `markdown` \| `html` |
 | `--timeout` | | 5 | Per-request timeout in seconds |
-| `--threads` | `-t` | 50 | Number of concurrent threads to use for scanning |
+| `--threads` | `-t` | 100 | Number of concurrent threads to use for scanning |
 | `--stealth` | | false | Enable stealth mode: random User-Agent, jitter, skip crt.sh, reduce noise |
 | `--modules` | | all | Comma-separated list of modules to run |
 
 ### Module names for `--modules`
 
-`discovery` `probe` `tls` `headers` `paths` `takeover`
+`discovery` `probe` `tls` `headers` `paths` `tech` `takeover` `osint`
 
 ---
 
@@ -272,8 +290,14 @@ anansi-cli/
     │   └── headers.go           # Security header audit + CORS check
     ├── paths/
     │   └── paths.go             # Exposed path + file detection
-    └── takeover/
-        └── takeover.go          # Subdomain takeover detection
+    ├── techstack/
+    │   └── techstack.go         # Deep CMS/framework audit + CVE version matching
+    ├── takeover/
+    │   └── takeover.go          # Subdomain takeover detection
+    ├── httpclient/
+    │   └── httpclient.go        # Shared connection-pooled HTTP client
+    └── dnscache/
+        └── dnscache.go          # TTL-based DNS resolver cache
 ```
 
 ---
