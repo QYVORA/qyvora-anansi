@@ -11,8 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fatih/color"
-	"github.com/spf13/cobra"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/chain"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/discovery"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/headers"
@@ -23,22 +21,24 @@ import (
 	"github.com/QYVORA/qyvora-anansi-cli/internal/takeover"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/techstack"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/tls"
+	"github.com/fatih/color"
+	"github.com/spf13/cobra"
 )
 
 var (
-	flagDeep        bool
-	flagOut         string
-	flagOutputFile  string
-	flagTimeout     int
-	flagModules     []string
-	flagWordlist    string
-	flagThreads     int
-	flagVerbose     bool
-	flagRecursive   bool
-	flagMutate      bool
-	flagDelay       int
-	flagPorts       []string
-	flagStealth     bool
+	flagDeep       bool
+	flagOut        string
+	flagOutputFile string
+	flagTimeout    int
+	flagModules    []string
+	flagWordlist   string
+	flagThreads    int
+	flagVerbose    bool
+	flagRecursive  bool
+	flagMutate     bool
+	flagDelay      int
+	flagPorts      []string
+	flagStealth    bool
 )
 
 // Version is stamped at build time via:
@@ -91,7 +91,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&flagDeep, "deep", false, "Enable deep scan (larger wordlist, more path probing)")
 	rootCmd.Flags().StringVar(&flagOut, "out", "terminal", "Output format: terminal | json | markdown | html")
 	rootCmd.Flags().IntVar(&flagTimeout, "timeout", 5, "Per-request timeout in seconds")
-	rootCmd.Flags().StringSliceVar(&flagModules, "modules", []string{"discovery", "probe", "tls", "headers", "paths", "tech", "takeover", "osint", "chain"}, "Modules to run (comma-separated)")
+	rootCmd.Flags().StringSliceVar(&flagModules, "modules", append([]string(nil), defaultModules...), "Modules to run (comma-separated)")
 	rootCmd.Flags().StringVarP(&flagWordlist, "wordlist", "w", "", "Path to custom subdomain wordlist")
 	rootCmd.Flags().IntVarP(&flagThreads, "threads", "t", 100, "Number of concurrent threads")
 	rootCmd.Flags().BoolVarP(&flagVerbose, "verbose", "v", false, "Show all results including not-found/failed items")
@@ -134,16 +134,25 @@ func dedupeFindings(findings []output.Finding) []output.Finding {
 	return out
 }
 
-// runScan is the top-level scan orchestrator.  It runs each enabled module
-// in sequence, passes results between phases, and returns the final report.
+// runScan is the top-level scan orchestrator.  With no arguments it drops the
+// user into the interactive Metasploit-style console; otherwise it validates
+// the target and runs the enabled modules.
 func runScan(cmd *cobra.Command, args []string) error {
 	if showVersion, _ := cmd.Flags().GetBool("version"); showVersion {
 		cmd.Println(Version)
 		return nil
 	}
 	if len(args) == 0 {
-		return cmd.Help()
+		return runConsole()
 	}
+	return runScanTarget(args, false)
+}
+
+// runScanTarget validates the target, then runs each enabled module in
+// sequence, passing results between phases.  When console is true (invoked
+// from the interactive console) an interrupt prints partial results and
+// returns to the prompt instead of exiting the process.
+func runScanTarget(args []string, console bool) error {
 	target := strings.ToLower(strings.TrimSpace(args[0]))
 	target = strings.TrimPrefix(target, "https://")
 	target = strings.TrimPrefix(target, "http://")
@@ -187,7 +196,9 @@ func runScan(cmd *cobra.Command, args []string) error {
 		out.Banner(target)
 		out.Info("Scan interrupted by user. Printing partial results...")
 		out.Summary(report)
-		os.Exit(130)
+		if !console {
+			os.Exit(130)
+		}
 	}()
 
 	out.Banner(target)
