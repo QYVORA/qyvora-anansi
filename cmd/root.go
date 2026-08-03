@@ -13,6 +13,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"github.com/QYVORA/qyvora-anansi-cli/internal/chain"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/discovery"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/headers"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/osint"
@@ -90,7 +91,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&flagDeep, "deep", false, "Enable deep scan (larger wordlist, more path probing)")
 	rootCmd.Flags().StringVar(&flagOut, "out", "terminal", "Output format: terminal | json | markdown | html")
 	rootCmd.Flags().IntVar(&flagTimeout, "timeout", 5, "Per-request timeout in seconds")
-	rootCmd.Flags().StringSliceVar(&flagModules, "modules", []string{"discovery", "probe", "tls", "headers", "paths", "tech", "takeover", "osint"}, "Modules to run (comma-separated)")
+	rootCmd.Flags().StringSliceVar(&flagModules, "modules", []string{"discovery", "probe", "tls", "headers", "paths", "tech", "takeover", "osint", "chain"}, "Modules to run (comma-separated)")
 	rootCmd.Flags().StringVarP(&flagWordlist, "wordlist", "w", "", "Path to custom subdomain wordlist")
 	rootCmd.Flags().IntVarP(&flagThreads, "threads", "t", 100, "Number of concurrent threads")
 	rootCmd.Flags().BoolVarP(&flagVerbose, "verbose", "v", false, "Show all results including not-found/failed items")
@@ -279,6 +280,15 @@ func runScan(cmd *cobra.Command, args []string) error {
 		osintResults := osint.Run(out, report.ProbeResults, target, flagTimeout, flagThreads, flagDelay, flagStealth)
 		report.OSINTResults = osintResults
 		out.OSINTTable(osintResults)
+	}
+
+	// -- PHASE 9: EXPLOIT CHAIN ANALYSIS ----------------------------------
+	report.Findings = dedupeFindings(report.Findings)
+	if hasModule("chain") {
+		out.PhaseHeader("09", "CHAIN", "multi-step exploit path assembly from findings")
+		chains := chain.Run(report.Findings)
+		report.Chains = chains
+		out.ChainTable(chains)
 	}
 
 	// -- SUMMARY -----------------------------------------------------------
