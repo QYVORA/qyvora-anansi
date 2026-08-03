@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### Added (interactive console milestone)
+- Running `anansi` with no arguments now enters an interactive
+  Metasploit-style console with its own `anansi >` prompt (module context is
+  shown as `anansi[paths] >`); all existing one-line commands keep working
+- Console commands: `scan <target>`, `run [target]`, `set`/`unset`/`options`
+  (option management mirroring the CLI flags), `use <module>`/`back`
+  (module context), `info`, `search`, `banner`, `history`, `version`,
+  `help`, `exit`/`quit`
+- `set RHOSTS <target>` + `run` mirrors the classic Metasploit flow; `use
+  <module>` + `run` restricts a scan to a single module
+- Arrow-key history, tab completion (commands, options, modules), and
+  persistent history in `~/.anansi_history` via `peterh/liner`
+- Piped input is supported, so console sessions can be scripted
+- Ctrl+C during a console scan prints partial results and returns to the
+  prompt instead of killing the process
+- Console tests: option parsing/validation, set/unset, module context,
+  help/options/info/search output, target resolution, prompt rendering,
+  tab completion
+
 ### Added (exploit-chain milestone)
 - New `chain` module (Phase 09): assembles findings into multi-step exploit
   paths ranked from low-severity foothold to full compromise

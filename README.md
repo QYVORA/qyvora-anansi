@@ -272,6 +272,50 @@ anansi target.com --out markdown > recon.md
 anansi target.com --out html > report.html
 ```
 
+All one-line commands above keep working exactly as documented. Running `anansi`
+with **no arguments** drops you into an interactive Metasploit-style console:
+
+```
+$ anansi
+anansi > banner
+anansi > set RHOSTS target.com
+RHOSTS => target.com
+anansi > set THREADS 200
+THREADS => 200
+anansi > run
+...
+anansi > use paths
+Using module paths
+anansi[paths] > info
+anansi[paths] > back
+anansi > exit
+```
+
+The console provides arrow-key history, tab completion, and persistent history
+(`~/.anansi_history`). Piped input also works, so you can script sessions:
+
+```
+printf 'set RHOSTS target.com\nrun\nexit\n' | anansi
+```
+
+Console commands:
+
+| Command | Description |
+|---------|-------------|
+| `scan <target>` | Run a full scan against `<target>` |
+| `run [target]` | Run a scan; falls back to `RHOSTS`, honors the selected module |
+| `set <opt> <value>` | Set a scan option (e.g. `set THREADS 200`) |
+| `unset <opt>` | Restore an option's default value |
+| `options` / `show options` | Show the current option values |
+| `use <module>` | Select a module context (`discovery`, `probe`, `tls`, `headers`, `paths`, `tech`, `takeover`, `osint`, `chain`) |
+| `back` | Deselect the current module |
+| `info` | Show module or option information |
+| `search <text>` | Search modules and options |
+| `banner` | Print the ANANSI banner |
+| `history` | Show command history |
+| `version` | Show version information |
+| `exit` / `quit` | Leave the console |
+
 ### Flags
 
 | <span style="color:#66B870;">Flag</span> | <span style="color:#66B870;">Shorthand</span> | <span style="color:#66B870;">Default</span> | <span style="color:#66B870;">Description</span> |
@@ -347,7 +391,8 @@ anansi-cli/
 ├── main.go                      # Entry point
 ├── go.mod                       # Go module + dependencies
 ├── cmd/
-│   └── root.go                  # CLI command, flags, phase orchestration
+│   ├── root.go                  # CLI command, flags, phase orchestration
+│   └── console.go               # Interactive Metasploit-style console
 └── internal/
     ├── output/
     │   ├── types.go             # Shared data structures
