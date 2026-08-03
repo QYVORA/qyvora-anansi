@@ -1,0 +1,33 @@
+# Exploit-chain kill-path templates.
+# Format: <chain name>|<step1,step2,...>|<summary>
+# Steps reference class IDs from classes.txt in escalation order.  A template
+# matches an asset only when the asset has at least one finding for every step
+# class.
+#
+# -- Full / server compromise -----------------------------------------------------
+Full Compromise|info-disclosure,credentials,auth-bypass,privesc,rce|Start with leaked information, obtain credentials, bypass authentication, escalate privileges, and execute code as root.
+RCE via Exposed Admin|exposed-admin,credentials,rce|Gain access to an exposed admin interface with default credentials and turn it into remote code execution.
+WebShell Upload|file-upload,rce|Upload a malicious file to a vulnerable upload endpoint and execute it to gain a foothold.
+Deserialization RCE|deserialization,rce|Trigger object injection through a serialized payload to achieve remote code execution.
+Container Breakout|cloud-misconfig,container-escape,rce|Abuse misconfigured cloud or container permissions to escape into the host and run code.
+
+# -- Data access ------------------------------------------------------------------
+SQLi to Full Access|sql-injection,auth-bypass,privesc|Exploit SQL injection to bypass authentication and escalate to administrator.
+Data Exfiltration|sql-injection,info-disclosure|Extract sensitive data from the database through injection or exposed backups.
+SSRF Pivot|ssrf,path-traversal,info-disclosure|Use SSRF to reach internal services and read sensitive files.
+Path Traversal to Code|path-traversal,file-upload,rce|Use path traversal to place or overwrite a file, then execute it on the server.
+
+# -- Web / client-side ------------------------------------------------------------
+XSS to Account Takeover|xss,auth-bypass|Steal sessions via XSS to take over authenticated accounts.
+CORS Chain|xss,info-disclosure|Combine a permissive CORS policy with client-side injection to exfiltrate victim data.
+Credential Harvesting|info-disclosure,credentials|Gather leaked credentials and secrets, then use them against login endpoints.
+
+# -- Access escalation ------------------------------------------------------------
+Admin via Weak Access|exposed-admin,auth-bypass,privesc|Break into an exposed admin panel through weak access control and escalate privileges.
+API Object Looting|bola,auth-bypass,info-disclosure|Enumerate API object identifiers to reach other users' data and sensitive resources.
+
+# -- Infra / identity -------------------------------------------------------------
+Subdomain Hijack|dns-misconfig,info-disclosure|Take over a dangling subdomain and use it to impersonate or phish the organisation.
+Crypto Downgrade|info-disclosure,crypto|Leverage exposed data and weak transport to intercept or decrypt traffic.
+Dependency Weaponization|dependency-vuln,rce|Turn a known vulnerable dependency into remote code execution.
+Supply Chain Poisoning|dependency-compromise,privesc,rce|Poison the dependency supply chain and escalate the injected code to full control.

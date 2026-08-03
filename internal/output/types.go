@@ -55,6 +55,33 @@ type OSINTResult struct {
 	Context  string // surrounding text or label
 }
 
+// ChainStep is one vulnerability class inside an exploit chain.  It records
+// which real finding triggered the step (title, severity, asset) and the
+// exploitation technique recommended for that class.
+type ChainStep struct {
+	Order           int    // 1-based position in the chain
+	Class           string // vulnerability class name, e.g. "SQL Injection"
+	ClassID         string // short class identifier, e.g. "sql-injection"
+	Severity        string // severity of the step (worst matching finding)
+	FindingTitle    string // title of the finding that triggered this step
+	FindingSeverity string
+	AffectedAsset   string
+	Technique       string // exploitation technique for this class
+}
+
+// ExploitChain is an ordered sequence of vulnerability classes that, taken
+// together, describe a realistic attack path from low-severity foothold to
+// full compromise.  Chains are assembled from the scan's real findings and
+// ranked by severity, length, and score.
+type ExploitChain struct {
+	ID       string // stable identifier: "chain-<n>"
+	Name     string // narrative name, e.g. "Full Compromise"
+	Summary  string // human-readable description of the kill path
+	Severity string // worst step severity in the chain
+	Score    int    // ranking score
+	Steps    []ChainStep
+}
+
 // Report is the full scan result object. It is populated incrementally by each
 // scan phase and rendered at the end in the chosen output format.
 type Report struct {
@@ -68,6 +95,7 @@ type Report struct {
 	Findings      []Finding
 	OSINTResults  []OSINTResult
 	TechResults   []TechResult
+	Chains        []ExploitChain
 }
 
 // SubdomainResult holds the outcome of a single subdomain resolution attempt.

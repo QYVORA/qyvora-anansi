@@ -28,6 +28,8 @@ func TestLoadData(t *testing.T) {
 		{"wordlists/tech/moodle.txt", 1},
 		{"wordlists/tech/mediawiki.txt", 1},
 		{"wordlists/tech/laravel.txt", 1},
+		{"wordlists/chain/classes.txt", 30},
+		{"wordlists/chain/chains.txt", 5},
 	}
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
@@ -161,6 +163,74 @@ func TestHeadersRulesDataIntegrity(t *testing.T) {
 		parts := strings.Split(line, "|")
 		if len(parts) < 3 {
 			t.Errorf("headers/rules.txt malformed line (want >=3 fields): %q", line)
+		}
+	}
+}
+
+func TestChainClassesDataIntegrity(t *testing.T) {
+	// Format: <class-id>|<class name>|<keyword1,keyword2,...>|<technique>
+	// The engine expects exactly 30 classes covering the standard vulnerability
+	// taxonomy used for exploit-chain assembly.
+	classes := LoadData("wordlists/chain/classes.txt")
+	if len(classes) != 30 {
+		t.Fatalf("chain/classes.txt has %d classes, want exactly 30", len(classes))
+	}
+
+	seen := map[string]bool{}
+	for _, line := range classes {
+		parts := strings.Split(line, "|")
+		if len(parts) != 4 {
+			t.Errorf("chain/classes.txt malformed line (want 4 fields, got %d): %q", len(parts), line)
+			continue
+		}
+		if parts[0] == "" || parts[1] == "" || parts[3] == "" {
+			t.Errorf("chain/classes.txt has an empty class-id/name/technique: %q", line)
+		}
+		if seen[parts[0]] {
+			t.Errorf("chain/classes.txt duplicate class id %q", parts[0])
+		}
+		seen[parts[0]] = true
+
+		keywords := strings.Split(parts[2], ",")
+		if len(keywords) == 0 {
+			t.Errorf("chain/classes.txt class %q has no keywords", parts[0])
+		}
+		for _, kw := range keywords {
+			if strings.TrimSpace(kw) == "" {
+				t.Errorf("chain/classes.txt class %q has an empty keyword", parts[0])
+			}
+		}
+	}
+}
+
+func TestChainTemplatesReferenceKnownClasses(t *testing.T) {
+	// Format: <chain name>|<step1,step2,...>|<summary>
+	// Every step must reference a class id defined in classes.txt.
+	known := map[string]bool{}
+	for _, line := range LoadData("wordlists/chain/classes.txt") {
+		parts := strings.Split(line, "|")
+		if len(parts) >= 1 && parts[0] != "" {
+			known[parts[0]] = true
+		}
+	}
+
+	for _, line := range LoadData("wordlists/chain/chains.txt") {
+		parts := strings.Split(line, "|")
+		if len(parts) != 3 {
+			t.Errorf("chain/chains.txt malformed line (want 3 fields, got %d): %q", len(parts), line)
+			continue
+		}
+		if parts[0] == "" || parts[2] == "" {
+			t.Errorf("chain/chains.txt line missing name/summary: %q", line)
+		}
+		steps := strings.Split(parts[1], ",")
+		if len(steps) < 2 {
+			t.Errorf("chain/chains.txt %q must have at least 2 steps", parts[0])
+		}
+		for _, s := range steps {
+			if !known[s] {
+				t.Errorf("chain/chains.txt %q references unknown class id %q", parts[0], s)
+			}
 		}
 	}
 }
