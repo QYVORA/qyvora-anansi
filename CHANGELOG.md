@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+### Added (exploit-chain milestone)
+- New `chain` module (Phase 09): assembles findings into multi-step exploit
+  paths ranked from low-severity foothold to full compromise
+- 30 vulnerability classes (`wordlists/chain/classes.txt`), each with keywords
+  matched against finding titles and a recommended exploitation technique
+- 18 curated kill-path templates (`wordlists/chain/chains.txt`): Full
+  Compromise, RCE via Exposed Admin, WebShell Upload, SSRF Pivot, SQLi to Full
+  Access, XSS to Account Takeover, Subdomain Hijack, and more
+- Generic escalation path fallback: any host with 2+ distinct classes gets a
+  chain ordered from least to most severe
+- Chains rendered in terminal (`ChainTable`), HTML card, Markdown section, and
+  included in JSON; the top chain is surfaced in the summary
+- Chain engine tests: classification, template matching, per-host grouping,
+  severity ordering, ranking, empty input
+- Wordlist integrity tests: exactly 30 classes with valid fields, template step
+  IDs must reference known classes
+
 ### Added (zero-config install & security milestone)
 - `install.sh` rewritten as a zero-decision installer: auto-detects
   OS/arch/shell, downloads the checksum-verified prebuilt binary

@@ -74,7 +74,7 @@
 
 ## What it does
 
-ANANSI CLI is a terminal-first attack surface recon tool for pentesters and bug bounty hunters. Give it a domain — it runs a full six-phase intelligence pipeline and prints raw technical output you can act on immediately.
+ANANSI CLI is a terminal-first attack surface recon tool for pentesters and bug bounty hunters. Give it a domain — it runs a full nine-phase intelligence pipeline and prints raw technical output you can act on immediately.
 
 By default, ANANSI filters out the noise and only displays **found** assets (e.g., live subdomains, active HTTP/HTTPS hosts, successful TLS certificates, missing security headers on live URLs, exposed paths, and confirmed takeovers). This keeps your terminal clean. If you want to see all attempted checks, including dead subdomains, failed connections, and unchecked endpoints, simply enable the **verbose** flag (`-v`/`--verbose`).
 
@@ -88,6 +88,7 @@ By default, ANANSI filters out the noise and only displays **found** assets (e.g
 | 06 | **TECH-STACK** | Deep audit of detected platforms — version detection, WordPress plugins/themes, XML-RPC, user enumeration, config backups, known-vulnerable version matching |
 | 07 | **TAKEOVER** | Dangling CNAMEs pointing to unclaimed cloud services |
 | 08 | **OSINT** | Emails, phone numbers, employees, WHOIS registrant data |
+| 09 | **CHAIN** | Assembles findings into multi-step exploit paths (low → high → critical) with per-step exploitation techniques |
 
 ---
 
@@ -113,6 +114,30 @@ When a host is fingerprinted as **WordPress, Drupal, Joomla, Magento, Ghost, Moo
 - **Known-vulnerable version matching** — detected versions are matched against a curated, CVE-backed table (`wordlists/tech/vulns.txt`) covering WordPress core, Drupal (Drupalgeddon), Joomla, Magento, Ghost, MediaWiki, Moodle, and high-value WordPress plugins such as Elementor, WP File Manager, Duplicator, Contact Form 7, Revolution Slider, and WooCommerce.
 
 Add your own fingerprints, path rules, and version ranges by editing the files under `wordlists/tech/`.
+
+## Exploit Chain Analysis
+
+Instead of a flat list of findings, the **CHAIN** phase (Phase 09) groups every
+discovered vulnerability into **multi-step exploit paths** that escalate from a
+low-severity foothold to full compromise:
+
+- **30 vulnerability classes** — RCE, SQL injection, XSS, SSRF, path traversal,
+  auth bypass, privilege escalation, default credentials, exposed admin
+  interfaces, deserialization, file upload, subdomain takeover, and more —
+  each with a recommended exploitation technique (`wordlists/chain/classes.txt`).
+- **Kill-path templates** — curated narratives such as *Full Compromise*
+  (Info Disclosure → Credentials → Auth Bypass → Privilege Escalation → RCE),
+  *WebShell Upload*, *SSRF Pivot*, and *Data Exfiltration*
+  (`wordlists/chain/chains.txt`).
+- **Generic escalation** — any host with two or more distinct classes gets a
+  ranked path ordered from the least to the most severe finding.
+- **Ranked output** — chains are scored and sorted by severity, length, and
+  score, capped to keep reports readable. The top chain also appears in the
+  summary and in the HTML/Markdown/JSON report formats.
+
+```bash
+anansi target.com --modules discovery,probe,tls,headers,paths,tech,takeover,osint,chain
+```
 
 ---
 
@@ -265,7 +290,7 @@ anansi target.com --out html > report.html
 
 ### Module names for `--modules`
 
-`discovery` `probe` `tls` `headers` `paths` `tech` `takeover` `osint`
+`discovery` `probe` `tls` `headers` `paths` `tech` `takeover` `osint` `chain`
 
 ---
 
@@ -341,6 +366,9 @@ anansi-cli/
     │   └── techstack.go         # Deep CMS/framework audit + CVE version matching
     ├── takeover/
     │   └── takeover.go          # Subdomain takeover detection
+    ├── chain/
+    │   ├── chain.go             # Exploit-chain assembly + ranking
+    │   └── chain_test.go
     ├── httpclient/
     │   └── httpclient.go        # Shared connection-pooled HTTP client
     └── dnscache/
