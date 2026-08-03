@@ -5,11 +5,13 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/QYVORA/qyvora-anansi-cli/internal/httpclient"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
 )
 
 func Run(out *output.Renderer, probeResults []output.ProbeResult, target string, timeout int, threads int, _ int, stealth bool) []output.OSINTResult {
 	var results []output.OSINTResult
+	client := httpclient.NewFollowRedirects(timeout)
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, threads)
@@ -40,7 +42,7 @@ func Run(out *output.Renderer, probeResults []output.ProbeResult, target string,
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			body, err := fetchPage(url, timeout, stealth)
+			body, err := fetchPage(client, url, stealth)
 			if err != nil {
 				out.Verbose(fmt.Sprintf("  skip %s: %v", url, err))
 				return

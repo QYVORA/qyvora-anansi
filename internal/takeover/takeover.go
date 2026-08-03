@@ -6,7 +6,6 @@ package takeover
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -17,8 +16,12 @@ import (
 	"time"
 
 	"github.com/QYVORA/qyvora-anansi-cli/internal/assets"
+	"github.com/QYVORA/qyvora-anansi-cli/internal/dnscache"
+	"github.com/QYVORA/qyvora-anansi-cli/internal/httpclient"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
 )
+
+var resolver = dnscache.New(net.DefaultResolver, 60*time.Second, 20000)
 
 type serviceFingerprint struct {
 	name        string
@@ -99,7 +102,6 @@ func checkTakeover(client *http.Client, subdomain string, deadCNAMEs []string, s
 
 func resolveCNAMEs(fqdn string) []string {
 	ctx := context.Background()
-	resolver := net.DefaultResolver
 	cname, err := resolver.LookupCNAME(ctx, fqdn)
 	if err != nil || cname == fqdn+"." {
 		return nil
@@ -115,16 +117,7 @@ func resolveCNAMEs(fqdn string) []string {
 // dead CNAMEs gathered during discovery and attempts to confirm the
 // vulnerability by checking the response body for known service fingerprints.
 func Run(out *output.Renderer, subdomains []output.SubdomainResult, timeout int, threads int, delayMs int, stealth bool) []output.Finding {
-	client := &http.Client{
-		Timeout: time.Duration(timeout) * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
-			DisableKeepAlives: true,
-		},
-		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
+	client := httpclient.NewNoRedirect(timeout)
 
 	var candidates []output.SubdomainResult
 	for _, s := range subdomains {

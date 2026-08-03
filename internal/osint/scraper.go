@@ -2,12 +2,10 @@ package osint
 
 import (
 	"context"
-	"crypto/tls"
 	"io"
 	"net/http"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
 )
@@ -20,21 +18,7 @@ var (
 	skipPrefix   = []string{"http", "www", "the ", "this ", "our ", "all ", "get", "contact", "about", "team", "javascript", "function", "var ", "const", "let ", "return", "footer", "header", "copyright", "all rights"}
 )
 
-func fetchPage(url string, timeout int, stealth bool) (string, error) {
-	client := &http.Client{
-		Timeout: time.Duration(timeout) * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
-			DisableKeepAlives: true,
-		},
-		CheckRedirect: func(_ *http.Request, via []*http.Request) error {
-			if len(via) >= 3 {
-				return http.ErrUseLastResponse
-			}
-			return nil
-		},
-	}
-
+func fetchPage(client *http.Client, url string, stealth bool) (string, error) {
 	req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
 	if err != nil {
 		return "", err

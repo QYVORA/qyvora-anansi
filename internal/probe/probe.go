@@ -5,7 +5,6 @@ package probe
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"github.com/QYVORA/qyvora-anansi-cli/internal/assets"
+	"github.com/QYVORA/qyvora-anansi-cli/internal/httpclient"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
 )
 
@@ -29,24 +29,11 @@ func loadTechHeaders() {
 	})
 }
 
-// newClient creates an HTTP client configured for security scanning.
-// InsecureSkipVerify allows probing hosts with invalid or self-signed
-// certificates.  DisableKeepAlives prevents connection reuse and keeps
-// concurrent scans clean.  Up to three redirects are followed.
+// newClient creates a shared, connection-pooled HTTP client.  InsecureSkipVerify
+// allows probing hosts with invalid or self-signed certificates.  Up to three
+// redirects are followed.
 func newClient(timeoutSec int) *http.Client {
-	return &http.Client{
-		Timeout: time.Duration(timeoutSec) * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
-			DisableKeepAlives: true,
-		},
-		CheckRedirect: func(_ *http.Request, via []*http.Request) error {
-			if len(via) >= 3 {
-				return http.ErrUseLastResponse
-			}
-			return nil
-		},
-	}
+	return httpclient.NewFollowRedirects(timeoutSec)
 }
 
 // probeURL attempts to fetch a single URL and returns metadata about the
@@ -195,28 +182,41 @@ func Run(out *output.Renderer, hosts []string, timeout int, threads int, ports [
 	client := newClient(timeout)
 	results := make([]output.ProbeResult, 0, len(hosts))
 	mu := sync.Mutex{}
-	sem := make(chan struct{}, threads)
 	var wg sync.WaitGroup
-
 	var completed atomic.Int64
-	for _, host := range hosts {
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(h string) {
-			defer wg.Done()
-			defer func() { <-sem }()
-			rs := probeHost(client, h, ports, delayMs, stealth)
-			mu.Lock()
-			for _, r := range rs {
-				results = append(results, *r)
-			}
-			c := completed.Add(1)
-			if c%5 == 0 || c == int64(len(hosts)) {
-				out.Progress(int(c), len(hosts), "Probing")
-			}
-			mu.Unlock()
-		}(host)
+
+	workers := threads
+	if workers > len(hosts) {
+		workers = len(hosts)
 	}
+	if workers < 1 {
+		workers = 1
+	}
+
+	jobs := make(chan string)
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for h := range jobs {
+				rs := probeHost(client, h, ports, delayMs, stealth)
+				mu.Lock()
+				for _, r := range rs {
+					results = append(results, *r)
+				}
+				c := completed.Add(1)
+				if c%5 == 0 || c == int64(len(hosts)) {
+					out.Progress(int(c), len(hosts), "Probing")
+				}
+				mu.Unlock()
+			}
+		}()
+	}
+
+	for _, host := range hosts {
+		jobs <- host
+	}
+	close(jobs)
 	wg.Wait()
 	return results, nil
 }

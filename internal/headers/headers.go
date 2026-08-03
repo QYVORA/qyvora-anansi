@@ -6,7 +6,6 @@ package headers
 
 import (
 	"context"
-	"crypto/tls"
 	"io"
 	"net/http"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/QYVORA/qyvora-anansi-cli/internal/assets"
+	"github.com/QYVORA/qyvora-anansi-cli/internal/httpclient"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
 )
 
@@ -53,14 +53,8 @@ func loadHeaderRules() {
 
 // auditURL fetches the given URL and inspects its response headers for
 // security-related headers and CORS misconfigurations.
-func auditURL(url string, timeout int, stealth bool) *output.HeaderResult {
+func auditURL(client *http.Client, url string, stealth bool) *output.HeaderResult {
 	loadHeaderRules()
-	client := &http.Client{
-		Timeout: time.Duration(timeout) * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
-	}
 
 	req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
 	if err != nil {
@@ -152,6 +146,7 @@ func auditURL(url string, timeout int, stealth bool) *output.HeaderResult {
 // Run audits security headers for all live probe results concurrently.
 func Run(_ []output.ProbeResult, liveHosts []output.ProbeResult, timeout int, threads int, delayMs int, stealth bool) []output.HeaderResult {
 	results := make([]output.HeaderResult, 0, len(liveHosts))
+	client := httpclient.NewFollowRedirects(timeout)
 	var mu sync.Mutex
 	sem := make(chan struct{}, threads)
 	var wg sync.WaitGroup
@@ -166,7 +161,7 @@ func Run(_ []output.ProbeResult, liveHosts []output.ProbeResult, timeout int, th
 			if delay > 0 {
 				time.Sleep(delay)
 			}
-			r := auditURL(pr.URL, timeout, stealth)
+			r := auditURL(client, pr.URL, stealth)
 			if r != nil {
 				mu.Lock()
 				results = append(results, *r)

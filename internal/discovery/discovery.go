@@ -19,12 +19,21 @@ import (
 	"time"
 
 	"github.com/QYVORA/qyvora-anansi-cli/internal/assets"
+	"github.com/QYVORA/qyvora-anansi-cli/internal/dnscache"
+	"github.com/QYVORA/qyvora-anansi-cli/internal/httpclient"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
 )
 
+// dnsResolver is the pure-Go resolver.  It bypasses cgo-backed system lookups
+// and keeps DNS resolution fully concurrent inside goroutines.
 var dnsResolver = &net.Resolver{
 	PreferGo: true,
 }
+
+// resolver wraps dnsResolver with a TTL cache.  Recursive and mutation phases
+// frequently re-resolve the same subdomains, so caching avoids redundant
+// resolver round-trips.
+var resolver = dnscache.New(dnsResolver, 60*time.Second, 20000)
 
 type crtEntry struct {
 	NameValue string `json:"name_value"`
@@ -43,7 +52,7 @@ type resolveJob struct {
 func fetchCrtSh(target string, timeout int) ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout*2)*time.Second)
 	defer cancel()
-	client := &http.Client{}
+	client := httpclient.NewFollowRedirects(timeout)
 	url := fmt.Sprintf("https://crt.sh/?q=%%25.%s&output=json", target)
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -81,9 +90,9 @@ func fetchCrtSh(target string, timeout int) ([]string, error) {
 // does not resolve it checks for a CNAME record; if the CNAME itself does
 // not resolve the host is flagged as a "dead CNAME" (potential takeover).
 func resolveHost(ctx context.Context, fqdn string) ([]string, []string) {
-	ips, err := dnsResolver.LookupHost(ctx, fqdn)
+	ips, err := resolver.LookupHost(ctx, fqdn)
 	if err != nil {
-		cname, cerr := dnsResolver.LookupCNAME(ctx, fqdn)
+		cname, cerr := resolver.LookupCNAME(ctx, fqdn)
 		if cerr == nil && cname != fqdn+"." {
 			return nil, []string{strings.TrimSuffix(cname, ".")}
 		}
@@ -104,7 +113,7 @@ func resolveHost(ctx context.Context, fqdn string) ([]string, []string) {
 // the target domain uses a wildcard DNS record.
 func detectWildcard(ctx context.Context, target string) []string {
 	randomSub := fmt.Sprintf("anansi-wildcard-test-%d.%s", time.Now().UnixNano(), target)
-	ips, _ := dnsResolver.LookupHost(ctx, randomSub)
+	ips, _ := resolver.LookupHost(ctx, randomSub)
 	return ips
 }
 
@@ -132,49 +141,61 @@ func resolveMany(jobs []resolveJob, results *[]output.SubdomainResult, threads, 
 	}
 
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, threads)
 	mu := sync.Mutex{}
 	var completed atomic.Int64
 
 	out.Info(fmt.Sprintf("Resolving %d candidates with %d threads...", len(jobs), threads))
 
-	for _, j := range jobs {
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(j resolveJob) {
-			defer wg.Done()
-			defer func() { <-sem }()
-
-			delay := output.JitterDelay(delayMs, stealth)
-			if delay > 0 {
-				time.Sleep(delay)
-			}
-
-			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
-			ips, deadCNAMEs := resolveHost(ctx, j.fqdn)
-			cancel()
-
-			if len(ips) > 0 && isWildcardResult(ips, wildcardMap) && j.source == output.SourceWordlist {
-				ips = nil
-			}
-
-			result := output.SubdomainResult{
-				FQDN:       j.fqdn,
-				Source:     j.source,
-				IPs:        ips,
-				DeadCNAMEs: deadCNAMEs,
-				Resolved:   len(ips) > 0,
-			}
-
-			mu.Lock()
-			*results = append(*results, result)
-			c := completed.Add(1)
-			if c%10 == 0 || c == int64(len(jobs)) {
-				out.Progress(int(c), len(jobs), label)
-			}
-			mu.Unlock()
-		}(j)
+	workers := threads
+	if workers > len(jobs) {
+		workers = len(jobs)
 	}
+	if workers < 1 {
+		workers = 1
+	}
+
+	jobsCh := make(chan resolveJob)
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := range jobsCh {
+				delay := output.JitterDelay(delayMs, stealth)
+				if delay > 0 {
+					time.Sleep(delay)
+				}
+
+				ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+				ips, deadCNAMEs := resolveHost(ctx, j.fqdn)
+				cancel()
+
+				if len(ips) > 0 && isWildcardResult(ips, wildcardMap) && j.source == output.SourceWordlist {
+					ips = nil
+				}
+
+				result := output.SubdomainResult{
+					FQDN:       j.fqdn,
+					Source:     j.source,
+					IPs:        ips,
+					DeadCNAMEs: deadCNAMEs,
+					Resolved:   len(ips) > 0,
+				}
+
+				mu.Lock()
+				*results = append(*results, result)
+				c := completed.Add(1)
+				if c%10 == 0 || c == int64(len(jobs)) {
+					out.Progress(int(c), len(jobs), label)
+				}
+				mu.Unlock()
+			}
+		}()
+	}
+
+	for _, j := range jobs {
+		jobsCh <- j
+	}
+	close(jobsCh)
 	wg.Wait()
 }
 

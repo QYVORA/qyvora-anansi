@@ -6,16 +6,17 @@ package paths
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/QYVORA/qyvora-anansi-cli/internal/assets"
+	"github.com/QYVORA/qyvora-anansi-cli/internal/httpclient"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
 )
 
@@ -163,21 +164,65 @@ func (r pathRule) checkPath(client *http.Client, baseURL string, baseline baseli
 	}
 }
 
+// extraPathsFromRobots fetches the host's robots.txt and converts every
+// Allow:/Disallow: entry into an extra low-severity probe.  This surfaces
+// intentionally-hidden directories (admin panels, backups, staging areas)
+// that generic wordlists miss — a cheap depth win (one extra request per host).
+func extraPathsFromRobots(client *http.Client, baseURL string) []pathRule {
+	target := strings.TrimRight(baseURL, "/") + "/robots.txt"
+	req, err := http.NewRequestWithContext(context.Background(), "GET", target, nil)
+	if err != nil {
+		return nil
+	}
+	req.Header.Set("User-Agent", output.DefaultUA)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return nil
+	}
+
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
+	var rules []pathRule
+	seen := map[string]bool{}
+	for _, line := range strings.Split(string(body), "\n") {
+		trimmed := strings.TrimSpace(line)
+		low := strings.ToLower(trimmed)
+		var path string
+		switch {
+		case strings.HasPrefix(low, "disallow:"):
+			path = strings.TrimSpace(trimmed[len("Disallow:"):])
+		case strings.HasPrefix(low, "allow:"):
+			path = strings.TrimSpace(trimmed[len("Allow:"):])
+		}
+		if path == "" || !strings.HasPrefix(path, "/") || path == "/" {
+			continue
+		}
+		if strings.Contains(path, "*") {
+			continue
+		}
+		if seen[path] {
+			continue
+		}
+		seen[path] = true
+		rules = append(rules, pathRule{
+			path:     path,
+			title:    "Robots.txt Disallowed Path (Reconnaissance)",
+			severity: output.Info,
+		})
+	}
+	return rules
+}
+
 // Run probes all live hosts for exposed paths and returns any findings.
 // A per-host 404 baseline is established first, then each path rule is
 // checked against the host in a single flat worker pool — avoiding the
 // nested-goroutine pattern that previously caused a race condition.
 func Run(out *output.Renderer, liveHosts []output.ProbeResult, deep bool, timeout int, threads int, delayMs int, stealth bool) []output.Finding {
-	client := &http.Client{
-		Timeout: time.Duration(timeout) * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
-			DisableKeepAlives: true,
-		},
-		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
+	client := httpclient.NewNoRedirect(timeout)
 
 	rules := loadRules("wordlists/paths/default.txt")
 	if deep {
@@ -194,7 +239,15 @@ func Run(out *output.Renderer, liveHosts []output.ProbeResult, deep bool, timeou
 		baselineCache[host.URL] = getBaseline(client, host.URL)
 	}
 
-	// Build flat job list: one job per (host, rule) pair.
+	// Discover per-host extra paths from robots.txt.
+	extraByHost := make(map[string][]pathRule, len(liveHosts))
+	for _, host := range liveHosts {
+		if extras := extraPathsFromRobots(client, host.URL); len(extras) > 0 {
+			extraByHost[host.URL] = extras
+		}
+	}
+
+	// Build flat job list: one job per (host, rule) pair, plus robots-derived rules.
 	type pair struct {
 		host output.ProbeResult
 		rule pathRule
@@ -202,48 +255,68 @@ func Run(out *output.Renderer, liveHosts []output.ProbeResult, deep bool, timeou
 
 	var pairs []pair
 	for _, host := range liveHosts {
-		for _, rule := range rules {
+		hostRules := rules
+		if extras, ok := extraByHost[host.URL]; ok {
+			hostRules = make([]pathRule, 0, len(rules)+len(extras))
+			hostRules = append(hostRules, rules...)
+			hostRules = append(hostRules, extras...)
+		}
+		for _, rule := range hostRules {
 			pairs = append(pairs, pair{host, rule})
 		}
 	}
 
 	var allFindings []output.Finding
 	mu := sync.Mutex{}
-	sem := make(chan struct{}, threads)
-	var wg sync.WaitGroup
-
-	completed := 0
 	totalJobs := len(pairs)
 
-	for _, p := range pairs {
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(h output.ProbeResult, r pathRule) {
-			defer wg.Done()
-			defer func() { <-sem }()
-
-			delay := output.JitterDelay(delayMs, stealth)
-			if delay > 0 {
-				time.Sleep(delay)
-			}
-
-			f := r.checkPath(client, h.URL, baselineCache[h.URL], stealth)
-			if f != nil {
-				mu.Lock()
-				allFindings = append(allFindings, *f)
-				mu.Unlock()
-			} else {
-				out.Verbose(fmt.Sprintf("Path not found: %s%s", h.URL, r.path))
-			}
-
-			mu.Lock()
-			completed++
-			if completed%10 == 0 || completed == totalJobs {
-				out.Progress(completed, totalJobs, "Probing Paths")
-			}
-			mu.Unlock()
-		}(p.host, p.rule)
+	// Fixed worker pool: exactly `threads` workers pull (host, rule) pairs from
+	// a channel.  Spawning one goroutine per job caused thousands of goroutine
+	// creations and lock-contended progress updates on wordlists of 8k+ rules;
+	// the pool keeps concurrency stable and progress updates atomic.
+	workers := threads
+	if workers > totalJobs {
+		workers = totalJobs
 	}
+	if workers < 1 {
+		workers = 1
+	}
+
+	jobs := make(chan pair)
+	var wg sync.WaitGroup
+	var completed atomic.Int64
+
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for p := range jobs {
+				delay := output.JitterDelay(delayMs, stealth)
+				if delay > 0 {
+					time.Sleep(delay)
+				}
+
+				f := p.rule.checkPath(client, p.host.URL, baselineCache[p.host.URL], stealth)
+				if f != nil {
+					mu.Lock()
+					allFindings = append(allFindings, *f)
+					mu.Unlock()
+				} else {
+					out.Verbose(fmt.Sprintf("Path not found: %s%s", p.host.URL, p.rule.path))
+				}
+
+				c := completed.Add(1)
+				if c%10 == 0 || c == int64(totalJobs) {
+					out.Progress(int(c), totalJobs, "Probing Paths")
+				}
+			}
+		}()
+	}
+
+	for _, p := range pairs {
+		jobs <- p
+	}
+	close(jobs)
 	wg.Wait()
 
 	return allFindings

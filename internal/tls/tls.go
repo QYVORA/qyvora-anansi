@@ -13,8 +13,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/QYVORA/qyvora-anansi-cli/internal/dnscache"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
 )
+
+// resolver caches SAN hostname lookups so subdomains discovered from TLS
+// certificates do not trigger redundant DNS queries.
+var resolver = dnscache.New(net.DefaultResolver, 60*time.Second, 20000)
 
 // probeHost establishes a TLS connection to the given hostname and extracts
 // certificate metadata.  InsecureSkipVerify is deliberately enabled so that
@@ -204,7 +209,7 @@ func Run(liveProbes []output.ProbeResult, targetDomain string, timeout int, thre
 				continue
 			}
 			seen[san] = struct{}{}
-			ips, _ := net.DefaultResolver.LookupHost(context.Background(), san)
+			ips, _ := resolver.LookupHost(context.Background(), san)
 			newSubdomains = append(newSubdomains, output.SubdomainResult{
 				FQDN:     san,
 				Source:   output.SourceSAN,
