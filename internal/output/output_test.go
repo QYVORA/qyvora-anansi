@@ -263,3 +263,22 @@ func TestReportJSONIncludesChains(t *testing.T) {
 	}
 }
 
+func TestProgressSuppressedWhenNotTTY(t *testing.T) {
+	out := captureStdout(t, func() {
+		r := &Renderer{format: "terminal", tty: false}
+		r.Progress(5, 10, "Test")
+	})
+	if strings.Contains(out, "\r") || strings.Contains(out, "%") {
+		t.Errorf("progress frame written to non-tty output: %q", out)
+	}
+}
+
+func TestProgressRendersOnTTY(t *testing.T) {
+	out := captureStdout(t, func() {
+		r := &Renderer{format: "terminal", tty: true}
+		r.Progress(10, 10, "Test")
+	})
+	if !strings.Contains(out, "100%") || !strings.Contains(out, "Test") {
+		t.Errorf("tty progress frame not rendered: %q", out)
+	}
+}

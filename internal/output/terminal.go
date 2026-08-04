@@ -33,6 +33,7 @@ type Renderer struct {
 	format  string
 	verbose bool
 	stealth bool
+	tty     bool
 }
 
 // New creates a Renderer for the given format and verbosity setting.
@@ -40,7 +41,18 @@ func New(format string, verbose bool) *Renderer {
 	return &Renderer{
 		format:  format,
 		verbose: verbose,
+		tty:     stdoutIsTerminal(),
 	}
+}
+
+// stdoutIsTerminal reports whether standard output is attached to a real
+// terminal (character device) rather than a pipe or file.
+func stdoutIsTerminal() bool {
+	fi, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
 }
 
 // WithStealth returns a copy of the Renderer with stealth mode enabled.
@@ -109,7 +121,10 @@ func (r *Renderer) Info(msg string) {
 }
 
 func (r *Renderer) Progress(current, total int, label string) {
-	if r.format != "terminal" {
+	// Carriage-return progress frames only make sense on a real terminal;
+	// when stdout is piped or redirected they would otherwise flood the output
+	// with one frame per update.
+	if r.format != "terminal" || !r.tty {
 		return
 	}
 	percent := float64(current) / float64(total) * 100
@@ -1309,4 +1324,3 @@ func (r *Renderer) renderMarkdown(report *Report) {
 		}
 	}
 }
-
