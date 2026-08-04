@@ -144,8 +144,6 @@ func resolveMany(jobs []resolveJob, results *[]output.SubdomainResult, threads, 
 	mu := sync.Mutex{}
 	var completed atomic.Int64
 
-	out.Info(fmt.Sprintf("Resolving %d candidates with %d threads...", len(jobs), threads))
-
 	workers := threads
 	if workers > len(jobs) {
 		workers = len(jobs)
