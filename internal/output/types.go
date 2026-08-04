@@ -208,4 +208,3 @@ func JitterDelay(delayMs int, stealth bool) time.Duration {
 	}
 	return base - jitter
 }
-

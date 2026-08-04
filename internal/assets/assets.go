@@ -13,6 +13,7 @@ import (
 )
 
 // EmbeddedAssets holds all wordlists compiled into the binary via //go:embed.
+//
 //go:embed wordlists/**/*.txt
 var EmbeddedAssets embed.FS
 

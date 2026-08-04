@@ -25,12 +25,12 @@ var (
 		"tech": "whois.nic.tech",
 	}
 
-	whoisOrg    = regexp.MustCompile(`(?mi)^(?:OrgName|org-name|org_name|Organization|organisation|Registrant Organization|owner|Sponsoring Registrar):\s*(.+)$`)
-	whoisEmail  = regexp.MustCompile(`(?mi)^(?:OrgEmail|org-email|org_email|Email|e-mail|Registrant Email|Admin Email|Tech Email):\s*(.+)$`)
-	whoisName   = regexp.MustCompile(`(?mi)^(?:OrgName|org-name|org_name|Registrant Name|Admin Name|Tech Name):\s*(.+)$`)
-	ianaWhois   = regexp.MustCompile(`(?mi)^whois:\s*(\S+)`)
-	rawEmail    = regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`)
-	rawPhone    = regexp.MustCompile(`\+\d{1,3}[-.\s]?\(?\d{2,4}\)?[-.\s]?\d{2,4}[-.\s]?\d{3,9}`)
+	whoisOrg   = regexp.MustCompile(`(?mi)^(?:OrgName|org-name|org_name|Organization|organisation|Registrant Organization|owner|Sponsoring Registrar):\s*(.+)$`)
+	whoisEmail = regexp.MustCompile(`(?mi)^(?:OrgEmail|org-email|org_email|Email|e-mail|Registrant Email|Admin Email|Tech Email):\s*(.+)$`)
+	whoisName  = regexp.MustCompile(`(?mi)^(?:OrgName|org-name|org_name|Registrant Name|Admin Name|Tech Name):\s*(.+)$`)
+	ianaWhois  = regexp.MustCompile(`(?mi)^whois:\s*(\S+)`)
+	rawEmail   = regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`)
+	rawPhone   = regexp.MustCompile(`\+\d{1,3}[-.\s]?\(?\d{2,4}\)?[-.\s]?\d{2,4}[-.\s]?\d{3,9}`)
 )
 
 type whoisContact struct {

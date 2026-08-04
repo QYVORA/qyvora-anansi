@@ -37,7 +37,7 @@ func fetchPage(client *http.Client, url string, stealth bool) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1024 * 1024))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1024*1024))
 	if err != nil {
 		return "", err
 	}
@@ -194,5 +194,3 @@ func isLikelyName(name string) bool {
 	}
 	return true
 }
-
-

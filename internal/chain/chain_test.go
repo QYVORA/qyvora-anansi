@@ -14,8 +14,8 @@ func TestClassify(t *testing.T) {
 	}{
 		{
 			finding: output.Finding{
-				Title:        "Exposed Environment File",
-				Description:  ".env returned HTTP 200.",
+				Title:         "Exposed Environment File",
+				Description:   ".env returned HTTP 200.",
 				AffectedAsset: "https://host/.env",
 			},
 			want: []string{"info-disclosure"},
@@ -47,7 +47,7 @@ func TestClassify(t *testing.T) {
 		},
 		{
 			finding: output.Finding{
-				Title:       "Exposed Admin Panel",
+				Title:         "Exposed Admin Panel",
 				AffectedAsset: "https://host/admin",
 			},
 			want: []string{"info-disclosure", "exposed-admin"},
@@ -195,11 +195,11 @@ func TestGenericEscalationOrderedBySeverity(t *testing.T) {
 
 func TestNormalizeHost(t *testing.T) {
 	tests := map[string]string{
-		"https://Host.COM/.env":    "host.com",
-		"http://host.com":          "host.com",
-		"https://www.host.com":     "host.com",
-		"host.com:8443/admin":      "host.com",
-		"https://a.b.host.io/x?y":  "a.b.host.io",
+		"https://Host.COM/.env":     "host.com",
+		"http://host.com":           "host.com",
+		"https://www.host.com":      "host.com",
+		"host.com:8443/admin":       "host.com",
+		"https://a.b.host.io/x?y":   "a.b.host.io",
 		"https://sub.host.com/api/": "sub.host.com",
 	}
 	for in, want := range tests {
