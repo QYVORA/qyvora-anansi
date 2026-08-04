@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/QYVORA/qyvora-anansi-cli/internal/chain"
@@ -59,6 +60,18 @@ var versionCmd = &cobra.Command{
 	},
 }
 
+// scanCmd runs a scan against an explicit target.  It exists so the REPL
+// habit `anansi scan <target>` also works at the CLI; without it cobra would
+// treat "scan" itself as the target domain.
+var scanCmd = &cobra.Command{
+	Use:   "scan <target>",
+	Short: "Run a scan against a target",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(_ *cobra.Command, args []string) error {
+		return runScanTarget(args, false)
+	},
+}
+
 // rootCmd is the main Cobra command.  It requires exactly one argument:
 // the target domain to scan.  The full ASCII art banner is shown in the
 // help text.
@@ -87,22 +100,25 @@ func Execute() {
 }
 
 // init registers all CLI flags with their default values and help text.
+// They are registered as persistent flags so the `scan` and `version`
+// subcommands inherit the same option set as the bare `anansi <target>` form.
 func init() {
-	rootCmd.Flags().BoolVar(&flagDeep, "deep", false, "Enable deep scan (larger wordlist, more path probing)")
-	rootCmd.Flags().StringVar(&flagOut, "out", "terminal", "Output format: terminal | json | markdown | html")
-	rootCmd.Flags().IntVar(&flagTimeout, "timeout", 5, "Per-request timeout in seconds")
-	rootCmd.Flags().StringSliceVar(&flagModules, "modules", append([]string(nil), defaultModules...), "Modules to run (comma-separated)")
-	rootCmd.Flags().StringVarP(&flagWordlist, "wordlist", "w", "", "Path to custom subdomain wordlist")
-	rootCmd.Flags().IntVarP(&flagThreads, "threads", "t", 100, "Number of concurrent threads")
-	rootCmd.Flags().BoolVarP(&flagVerbose, "verbose", "v", false, "Show all results including not-found/failed items")
-	rootCmd.Flags().BoolVarP(&flagRecursive, "recursive", "r", false, "Enable recursive subdomain brute-force on resolved subdomains")
-	rootCmd.Flags().BoolVarP(&flagMutate, "mutate", "m", false, "Enable subdomain mutation brute-force based on resolved prefixes")
-	rootCmd.Flags().IntVar(&flagDelay, "delay", 0, "Delay between requests in ms for rate limiting")
-	rootCmd.Flags().StringSliceVarP(&flagPorts, "ports", "p", []string{"80", "443"}, "Ports to probe (comma-separated)")
-	rootCmd.Flags().BoolVar(&flagStealth, "stealth", false, "Enable stealth mode: random UA, jitter, skip crt.sh, reduced concurrency")
-	rootCmd.Flags().StringVar(&flagOutputFile, "output-file", "", "Write output to file instead of stdout")
+	rootCmd.PersistentFlags().BoolVar(&flagDeep, "deep", false, "Enable deep scan (larger wordlist, more path probing)")
+	rootCmd.PersistentFlags().StringVar(&flagOut, "out", "terminal", "Output format: terminal | json | markdown | html")
+	rootCmd.PersistentFlags().IntVar(&flagTimeout, "timeout", 5, "Per-request timeout in seconds")
+	rootCmd.PersistentFlags().StringSliceVar(&flagModules, "modules", append([]string(nil), defaultModules...), "Modules to run (comma-separated)")
+	rootCmd.PersistentFlags().StringVarP(&flagWordlist, "wordlist", "w", "", "Path to custom subdomain wordlist")
+	rootCmd.PersistentFlags().IntVarP(&flagThreads, "threads", "t", 100, "Number of concurrent threads")
+	rootCmd.PersistentFlags().BoolVarP(&flagVerbose, "verbose", "v", false, "Show all results including not-found/failed items")
+	rootCmd.PersistentFlags().BoolVarP(&flagRecursive, "recursive", "r", false, "Enable recursive subdomain brute-force on resolved subdomains")
+	rootCmd.PersistentFlags().BoolVarP(&flagMutate, "mutate", "m", false, "Enable subdomain mutation brute-force based on resolved prefixes")
+	rootCmd.PersistentFlags().IntVar(&flagDelay, "delay", 0, "Delay between requests in ms for rate limiting")
+	rootCmd.PersistentFlags().StringSliceVarP(&flagPorts, "ports", "p", []string{"80", "443"}, "Ports to probe (comma-separated)")
+	rootCmd.PersistentFlags().BoolVar(&flagStealth, "stealth", false, "Enable stealth mode: random UA, jitter, skip crt.sh, reduced concurrency")
+	rootCmd.PersistentFlags().StringVar(&flagOutputFile, "output-file", "", "Write output to file instead of stdout")
 	rootCmd.Flags().Bool("version", false, "Print version information and exit")
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(scanCmd)
 }
 
 // hasModule reports whether the given module name is present in the
@@ -176,7 +192,7 @@ func runScanTarget(args []string, console bool) error {
 		return fmt.Errorf("invalid target: domain exceeds 253 characters (%d)", len(target))
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	startTime := time.Now()
@@ -190,14 +206,24 @@ func runScanTarget(args []string, console bool) error {
 		StartedAt: startTime,
 	}
 
+	// scanDone is closed once the scan finishes cleanly.  The interrupt
+	// goroutine races with the main scan, so without it a signal arriving
+	// after completion (but before process exit) would print a spurious
+	// "interrupted" block and force exit code 130.
+	scanDone := make(chan struct{})
+	defer close(scanDone)
+
 	go func() {
-		<-ctx.Done()
-		report.Duration = time.Since(startTime)
-		out.Banner(target)
-		out.Info("Scan interrupted by user. Printing partial results...")
-		out.Summary(report)
-		if !console {
-			os.Exit(130)
+		select {
+		case <-ctx.Done():
+			report.Duration = time.Since(startTime)
+			out.Banner(target)
+			out.Info("Scan interrupted by user. Printing partial results...")
+			out.Summary(report)
+			if !console {
+				os.Exit(130)
+			}
+		case <-scanDone:
 		}
 	}()
 

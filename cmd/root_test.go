@@ -110,3 +110,25 @@ func TestRunScanRejectsMalformedDomain(t *testing.T) {
 		}
 	}
 }
+
+func TestScanSubcommandRejectsMissingTarget(t *testing.T) {
+	rootCmd.SetArgs([]string{"scan"})
+	err := rootCmd.Execute()
+	if err == nil || !strings.Contains(err.Error(), "1 arg") {
+		t.Errorf("scan without target: got %v, want arg-count error", err)
+	}
+}
+
+func TestScanSubcommandRejectsIPTarget(t *testing.T) {
+	rootCmd.SetArgs([]string{"scan", "192.168.1.1"})
+	err := rootCmd.Execute()
+	if err == nil || !strings.Contains(err.Error(), "not an IP") {
+		t.Errorf("scan with IP target: got %v, want IP validation error", err)
+	}
+}
+
+func TestScanSubcommandExists(t *testing.T) {
+	if _, _, err := rootCmd.Find([]string{"scan"}); err != nil {
+		t.Fatalf("scan subcommand not found: %v", err)
+	}
+}
