@@ -96,18 +96,69 @@ func newConsoleSession(out io.Writer, tty bool) *consoleSession {
 // runConsole launches the interactive console.  When both stdin and stdout are
 // terminals it enables line editing, tab completion and persistent history via
 // liner; otherwise it degrades to plain line-by-line reading (pipe-friendly).
+//
+// Any CLI flags passed without a target (e.g. `anansi --deep`) are inherited by
+// the console so the REPL starts where the command line left off.
 func runConsole() error {
 	tty := isatty.IsTerminal(os.Stdin.Fd()) && isatty.IsTerminal(os.Stdout.Fd())
-	return newConsoleSession(os.Stdout, tty).run()
+	snap := snapshotConsoleOptions()
+	s := newConsoleSession(os.Stdout, tty)
+	s.applySnapshot(snap)
+	return s.run()
+}
+
+// snapshotConsoleOptions reads the current global flag values so a console
+// started alongside CLI flags keeps them as its initial options.  RHOSTS is
+// session-managed and intentionally absent (there is no CLI flag for it).
+func snapshotConsoleOptions() map[string]string {
+	return map[string]string{
+		"DEEP":        strconv.FormatBool(flagDeep),
+		"OUT":         flagOut,
+		"OUTPUT_FILE": flagOutputFile,
+		"TIMEOUT":     strconv.Itoa(flagTimeout),
+		"MODULES":     strings.Join(flagModules, ","),
+		"WORDLIST":    flagWordlist,
+		"THREADS":     strconv.Itoa(flagThreads),
+		"VERBOSE":     strconv.FormatBool(flagVerbose),
+		"RECURSIVE":   strconv.FormatBool(flagRecursive),
+		"MUTATE":      strconv.FormatBool(flagMutate),
+		"DELAY":       strconv.Itoa(flagDelay),
+		"PORTS":       strings.Join(flagPorts, ","),
+		"STEALTH":     strconv.FormatBool(flagStealth),
+	}
+}
+
+// applySnapshot copies captured option values into the session state and the
+// backing global flags.  Unknown or absent names are ignored.
+func (s *consoleSession) applySnapshot(snapshot map[string]string) {
+	for _, o := range consoleOptions {
+		if v, ok := snapshot[o.name]; ok {
+			s.values[o.name] = v
+			_ = applyOption(o.name, v)
+		}
+	}
 }
 
 // run drives the REPL using the line editor when in a terminal, or a plain
 // scanner otherwise.
 func (s *consoleSession) run() error {
 	if s.tty {
+		s.welcome()
 		return s.runLiner()
 	}
 	return s.runPlain()
+}
+
+// welcome prints the startup banner and a help hint on a real terminal only
+// (msfconsole-style).  Piped sessions stay quiet so scripts get clean output.
+func (s *consoleSession) welcome() {
+	if !s.tty {
+		return
+	}
+	s.printBanner()
+	fmt.Fprintln(s.out)
+	fmt.Fprintln(s.out, "  type 'help' for the command list, 'options' to view scan options.")
+	fmt.Fprintln(s.out)
 }
 
 // runPlain reads one command per line from stdin without line editing.  This
@@ -157,7 +208,12 @@ func (s *consoleSession) runLiner() error {
 				fmt.Fprintln(s.out)
 				break
 			}
-			return err
+			// The line editor could not start (e.g. a terminal liner cannot
+			// query, a pty with no window size, or a broken stdin).  Rather
+			// than dying with a cryptic error and dumping cobra usage, degrade
+			// gracefully to plain line-by-line reading.
+			fmt.Fprintf(s.out, "line editing unavailable (%v); continuing in plain mode\n", err)
+			return s.runPlain()
 		}
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -395,7 +451,11 @@ func (s *consoleSession) printOptions() {
 	fmt.Fprintln(s.out, "Scan Options")
 	fmt.Fprintln(s.out, "============")
 	for _, o := range consoleOptions {
-		fmt.Fprintf(s.out, "  %-12s = %-20s %s\n", o.name, s.values[o.name], o.desc)
+		val := s.values[o.name]
+		if len(val) > 24 {
+			val = val[:21] + "..."
+		}
+		fmt.Fprintf(s.out, "  %-12s = %-24s %s\n", o.name, val, o.desc)
 	}
 	fmt.Fprintln(s.out)
 	if s.module != "" {

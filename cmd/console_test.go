@@ -316,3 +316,88 @@ func TestConsoleCompleter(t *testing.T) {
 		t.Errorf("complete(\"use take\") = %v, want takeover", got)
 	}
 }
+
+func TestConsoleWelcomeOnTTY(t *testing.T) {
+	s, buf := newTestSession()
+	s.tty = true
+	s.welcome()
+	out := buf.String()
+	if !strings.Contains(out, "Attack Surface Intelligence Engine") {
+		t.Errorf("tty welcome missing banner: %q", out)
+	}
+	if !strings.Contains(out, "help") {
+		t.Errorf("tty welcome missing help hint: %q", out)
+	}
+}
+
+func TestConsoleWelcomeQuietOnPipe(t *testing.T) {
+	s, buf := newTestSession()
+	s.welcome()
+	if buf.Len() != 0 {
+		t.Errorf("non-tty welcome should be empty, got %q", buf.String())
+	}
+}
+
+func TestConsoleSeedsFromCLIFlags(t *testing.T) {
+	oldDeep, oldThreads, oldModules := flagDeep, flagThreads, flagModules
+	flagDeep, flagThreads = true, 250
+	flagModules = []string{"discovery", "probe"}
+	defer func() {
+		flagDeep, flagThreads, flagModules = oldDeep, oldThreads, oldModules
+	}()
+
+	snap := snapshotConsoleOptions()
+	s, _ := newTestSession()
+	s.applySnapshot(snap)
+
+	if !flagDeep {
+		t.Error("flagDeep not seeded from CLI flags")
+	}
+	if flagThreads != 250 {
+		t.Errorf("flagThreads = %d, want 250", flagThreads)
+	}
+	if s.values["DEEP"] != "true" {
+		t.Errorf("values[DEEP] = %q, want true", s.values["DEEP"])
+	}
+	if s.values["THREADS"] != "250" {
+		t.Errorf("values[THREADS] = %q, want 250", s.values["THREADS"])
+	}
+	if s.values["MODULES"] != "discovery,probe" {
+		t.Errorf("values[MODULES] = %q, want discovery,probe", s.values["MODULES"])
+	}
+}
+
+func TestSnapshotConsoleOptionsDefaults(t *testing.T) {
+	oldDeep, oldThreads, oldModules := flagDeep, flagThreads, flagModules
+	flagDeep, flagThreads = false, 100
+	flagModules = append([]string(nil), defaultModules...)
+	defer func() {
+		flagDeep, flagThreads, flagModules = oldDeep, oldThreads, oldModules
+	}()
+
+	snap := snapshotConsoleOptions()
+	if snap["DEEP"] != "false" {
+		t.Errorf("snapshot DEEP = %q, want false", snap["DEEP"])
+	}
+	if snap["THREADS"] != "100" {
+		t.Errorf("snapshot THREADS = %q, want 100", snap["THREADS"])
+	}
+	if _, ok := snap["RHOSTS"]; ok {
+		t.Error("snapshot must not contain session-managed RHOSTS")
+	}
+}
+
+func TestConsoleOptionsTruncatesLongValues(t *testing.T) {
+	s, buf := newTestSession()
+	s.printOptions()
+	out := buf.String()
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, "MODULES") && strings.Contains(line, "Modules to run") {
+			if !strings.Contains(line, "...") {
+				t.Errorf("long MODULES value not truncated: %q", line)
+			}
+			return
+		}
+	}
+	t.Fatal("MODULES line not found in options output")
+}
