@@ -6,10 +6,28 @@
 - Running `anansi` with no arguments now enters an interactive
   Metasploit-style console with its own `anansi >` prompt (module context is
   shown as `anansi[paths] >`); all existing one-line commands keep working
+- A startup banner and help hint are printed when the console runs on a real
+  terminal; piped sessions stay quiet so scripts get clean output
+- CLI flags passed without a target (e.g. `anansi --deep --threads 250`) are
+  inherited by the console as its initial option values
 - Console commands: `scan <target>`, `run [target]`, `set`/`unset`/`options`
   (option management mirroring the CLI flags), `use <module>`/`back`
   (module context), `info`, `search`, `banner`, `history`, `version`,
   `help`, `exit`/`quit`
+
+### Fixed (runtime hardening)
+- Progress bars are only rendered on a real terminal; piped/redirected output
+  no longer floods with carriage-return frames
+- New `scan <target>` subcommand: the REPL habit now works at the CLI instead
+  of silently treating "scan" as the target domain
+- The interactive console degrades to plain line-reading (with a notice) if
+  the line editor cannot start, instead of dying with a cryptic liner error
+  and dumping cobra usage
+- `options` truncates long values so columns no longer collide
+- A signal arriving after a scan completes can no longer print a spurious
+  "Scan interrupted by user" block and force exit code 130; SIGTERM is now
+  handled alongside SIGINT (SIGKILL can never be caught)
+- Discovery no longer prints the "Resolving N candidates" line twice
 - `set RHOSTS <target>` + `run` mirrors the classic Metasploit flow; `use
   <module>` + `run` restricts a scan to a single module
 - Arrow-key history, tab completion (commands, options, modules), and

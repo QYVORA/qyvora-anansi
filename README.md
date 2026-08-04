@@ -57,6 +57,7 @@
 
   <pre style="background: #0d0d0d; border: 1px solid rgba(102, 184, 112, 0.18); border-radius: 8px; padding: 1rem 1.5rem; display: inline-block; text-align: left; color: #EEF0EE; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; line-height: 1.6;">
 <span style="color: #66B870;">anansi</span> target.com
+<span style="color: #66B870;">anansi</span> scan target.com
 <span style="color: #66B870;">anansi</span> target.com <span style="color: #60a5fa;">--verbose</span>
 <span style="color: #66B870;">anansi</span> target.com <span style="color: #60a5fa;">--deep</span>
 <span style="color: #66B870;">anansi</span> target.com <span style="color: #60a5fa;">--out</span> json &gt; results.json
@@ -273,11 +274,19 @@ anansi target.com --out html > report.html
 ```
 
 All one-line commands above keep working exactly as documented. Running `anansi`
-with **no arguments** drops you into an interactive Metasploit-style console:
+with **no arguments** drops you into an interactive Metasploit-style console
+(with a startup banner on a real terminal):
 
 ```
 $ anansi
-anansi > banner
+
+  [ANANSI ASCII-ART BANNER]
+
+  Attack Surface Intelligence Engine
+  QYVORA OffSec — https://qyvora.netlify.app
+
+  type 'help' for the command list, 'options' to view scan options.
+
 anansi > set RHOSTS target.com
 RHOSTS => target.com
 anansi > set THREADS 200
@@ -291,8 +300,13 @@ anansi[paths] > back
 anansi > exit
 ```
 
+CLI flags passed without a target are inherited by the console as initial
+options, so `anansi --deep --threads 250` starts the REPL with those values
+already set.
+
 The console provides arrow-key history, tab completion, and persistent history
-(`~/.anansi_history`). Piped input also works, so you can script sessions:
+(`~/.anansi_history`). Piped input also works, so you can script sessions
+(piped sessions skip the startup banner):
 
 ```
 printf 'set RHOSTS target.com\nrun\nexit\n' | anansi
@@ -302,7 +316,7 @@ Console commands:
 
 | Command | Description |
 |---------|-------------|
-| `scan <target>` | Run a full scan against `<target>` |
+| `scan <target>` | Run a full scan against `<target>` (also available as the CLI subcommand `anansi scan <target>`) |
 | `run [target]` | Run a scan; falls back to `RHOSTS`, honors the selected module |
 | `set <opt> <value>` | Set a scan option (e.g. `set THREADS 200`) |
 | `unset <opt>` | Restore an option's default value |
