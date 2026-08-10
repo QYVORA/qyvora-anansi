@@ -38,6 +38,38 @@ func TestLoadRulesDeep(t *testing.T) {
 	}
 }
 
+func TestLoadFocusedWordlists(t *testing.T) {
+	for _, name := range []string{"wordlists/paths/js.txt", "wordlists/paths/sensitive.txt"} {
+		rules := loadRules(name)
+		if len(rules) == 0 {
+			t.Errorf("loadRules(%q) returned empty rules", name)
+			continue
+		}
+		for i, r := range rules {
+			if r.path == "" || r.title == "" || r.severity == "" {
+				t.Errorf("%s: rules[%d] has empty path/title/severity", name, i)
+			}
+		}
+	}
+}
+
+func TestLoadExtensions(t *testing.T) {
+	exts := LoadExtensions()
+	if len(exts) == 0 {
+		t.Fatal("LoadExtensions returned no extensions")
+	}
+	seen := map[string]bool{}
+	for _, e := range exts {
+		if e[0] != '.' {
+			t.Errorf("extension %q is not dot-prefixed", e)
+		}
+		if seen[e] {
+			t.Errorf("duplicate extension %q", e)
+		}
+		seen[e] = true
+	}
+}
+
 func TestLoadRulesNonexistent(t *testing.T) {
 	rules := loadRules("/nonexistent/rules.txt")
 	if rules != nil {

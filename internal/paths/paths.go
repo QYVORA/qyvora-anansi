@@ -2,6 +2,13 @@
 // such as /.env, /.git/config, /admin, /api-docs, and other common targets.
 // It uses a per-host 404 baseline to reduce false positives and follows
 // redirect chains to distinguish real endpoints from root-redirects.
+//
+// In addition to the generic default/deep rule lists it loads two focused
+// wordlists: js.txt (common JavaScript bundles, libraries, source maps and
+// workers for JS analysis) and sensitive.txt (high-value PHP, config, backup
+// and credential files worth downloading for offline analysis). Rules flagged
+// captureBody=true have their body captured into the finding evidence so the
+// content can be examined further.
 package paths
 
 import (
@@ -47,6 +54,28 @@ func loadRules(filename string) []pathRule {
 		})
 	}
 	return rules
+}
+
+// LoadExtensions returns the list of file extensions used for extension-based
+// path checks (e.g. probing /admin.php when /admin is found). The list is a
+// plain one-per-line set of dot-prefixed extensions from
+// wordlists/extensions.txt; entries are returned trimmed and de-duplicated.
+func LoadExtensions() []string {
+	lines := assets.LoadData("wordlists/extensions.txt")
+	seen := make(map[string]struct{}, len(lines))
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		ext := strings.TrimSpace(line)
+		if ext == "" || !strings.HasPrefix(ext, ".") {
+			continue
+		}
+		if _, ok := seen[ext]; ok {
+			continue
+		}
+		seen[ext] = struct{}{}
+		out = append(out, ext)
+	}
+	return out
 }
 
 type baselineResponse struct {
@@ -228,6 +257,11 @@ func Run(out *output.Renderer, liveHosts []output.ProbeResult, deep bool, timeou
 	if deep {
 		rules = append(rules, loadRules("wordlists/paths/deep.txt")...)
 	}
+	// Focused wordlists: JavaScript assets for JS analysis and high-value
+	// PHP/config/backup files worth downloading. Loaded on every scan so the
+	// JavaScript-analysis and file-download behaviour is on by default.
+	rules = append(rules, loadRules("wordlists/paths/js.txt")...)
+	rules = append(rules, loadRules("wordlists/paths/sensitive.txt")...)
 
 	if len(liveHosts) == 0 || len(rules) == 0 {
 		return nil

@@ -13,8 +13,11 @@ import (
 )
 
 // EmbeddedAssets holds all wordlists compiled into the binary via //go:embed.
+// Both patterns are needed because Go's `**` glob does not match files placed
+// directly under wordlists/ (only those in its subdirectories); extensions.txt
+// lives at that top level for the extension-check feature.
 //
-//go:embed wordlists/**/*.txt
+//go:embed wordlists/*.txt wordlists/**/*.txt
 var EmbeddedAssets embed.FS
 
 // LoadData reads a file from the given path.  It first tries the local
