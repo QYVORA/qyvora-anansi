@@ -1,0 +1,101 @@
+/app.js|Exposed JavaScript File|LOW|true
+/app.min.js|Exposed JavaScript File|LOW|true
+/application.js|Exposed JavaScript File|LOW|true
+/application.min.js|Exposed JavaScript File|LOW|true
+/main.js|Exposed JavaScript File|LOW|true
+/main.min.js|Exposed JavaScript File|LOW|true
+/index.js|Exposed JavaScript File|LOW|true
+/index.min.js|Exposed JavaScript File|LOW|true
+/bundle.js|Exposed JavaScript Bundle|LOW|true
+/bundle.min.js|Exposed JavaScript Bundle|LOW|true
+/vendor.js|Exposed JavaScript Vendor Bundle|LOW|true
+/vendor.min.js|Exposed JavaScript Vendor Bundle|LOW|true
+/common.js|Exposed JavaScript File|LOW|true
+/common.min.js|Exposed JavaScript File|LOW|true
+/site.js|Exposed JavaScript File|LOW|true
+/site.min.js|Exposed JavaScript File|LOW|true
+/custom.js|Exposed JavaScript File|LOW|true
+/custom.min.js|Exposed JavaScript File|LOW|true
+/theme.js|Exposed JavaScript File|LOW|true
+/theme.min.js|Exposed JavaScript File|LOW|true
+/script.js|Exposed JavaScript File|LOW|true
+/script.min.js|Exposed JavaScript File|LOW|true
+/scripts.js|Exposed JavaScript File|LOW|true
+/core.js|Exposed JavaScript File|LOW|true
+/core.min.js|Exposed JavaScript File|LOW|true
+/global.js|Exposed JavaScript File|LOW|true
+/global.min.js|Exposed JavaScript File|LOW|true
+/utils.js|Exposed JavaScript File|LOW|true
+/util.js|Exposed JavaScript File|LOW|true
+/helpers.js|Exposed JavaScript File|LOW|true
+/helper.js|Exposed JavaScript File|LOW|true
+/api.js|Exposed JavaScript API Client|LOW|true
+/api.min.js|Exposed JavaScript API Client|LOW|true
+/client.js|Exposed JavaScript Client|LOW|true
+/client.min.js|Exposed JavaScript Client|LOW|true
+/server.js|Exposed JavaScript Server Code|MEDIUM|true
+/server.min.js|Exposed JavaScript Server Code|MEDIUM|true
+/runtime.js|Exposed JavaScript Runtime|LOW|true
+/runtime.min.js|Exposed JavaScript Runtime|LOW|true
+/polyfills.js|Exposed JavaScript Polyfills|LOW|true
+/polyfills.min.js|Exposed JavaScript Polyfills|LOW|true
+/init.js|Exposed JavaScript File|LOW|true
+/init.min.js|Exposed JavaScript File|LOW|true
+/functions.js|Exposed JavaScript File|LOW|true
+/functions.min.js|Exposed JavaScript File|LOW|true
+/config.js|Exposed JavaScript Config|MEDIUM|true
+/config.min.js|Exposed JavaScript Config|MEDIUM|true
+/settings.js|Exposed JavaScript Config|MEDIUM|true
+/settings.min.js|Exposed JavaScript Config|MEDIUM|true
+/app.config.js|Exposed JavaScript Config|MEDIUM|true
+/main.config.js|Exposed JavaScript Config|MEDIUM|true
+/sw.js|Exposed Service Worker|MEDIUM|true
+/service-worker.js|Exposed Service Worker|MEDIUM|true
+/serviceworker.js|Exposed Service Worker|MEDIUM|true
+/worker.js|Exposed Web Worker|LOW|true
+/workers.js|Exposed Web Worker|LOW|true
+/app.map|JavaScript Source Map Disclosure|MEDIUM|true
+/app.js.map|JavaScript Source Map Disclosure|MEDIUM|true
+/main.js.map|JavaScript Source Map Disclosure|MEDIUM|true
+/index.js.map|JavaScript Source Map Disclosure|MEDIUM|true
+/bundle.js.map|JavaScript Source Map Disclosure|MEDIUM|true
+/vendor.js.map|JavaScript Source Map Disclosure|MEDIUM|true
+/common.js.map|JavaScript Source Map Disclosure|MEDIUM|true
+/jquery.js|Exposed JavaScript Library|LOW|true
+/jquery.min.js|Exposed JavaScript Library|LOW|true
+/bootstrap.js|Exposed JavaScript Library|LOW|true
+/bootstrap.min.js|Exposed JavaScript Library|LOW|true
+/bootstrap.bundle.min.js|Exposed JavaScript Library|LOW|true
+/angular.js|Exposed JavaScript Framework|LOW|true
+/angular.min.js|Exposed JavaScript Framework|LOW|true
+/react.js|Exposed JavaScript Framework|LOW|true
+/react.min.js|Exposed JavaScript Framework|LOW|true
+/react-dom.js|Exposed JavaScript Framework|LOW|true
+/react-dom.min.js|Exposed JavaScript Framework|LOW|true
+/vue.js|Exposed JavaScript Framework|LOW|true
+/vue.min.js|Exposed JavaScript Framework|LOW|true
+/vue.global.js|Exposed JavaScript Framework|LOW|true
+/vue.global.min.js|Exposed JavaScript Framework|LOW|true
+/axios.js|Exposed JavaScript Library|LOW|true
+/axios.min.js|Exposed JavaScript Library|LOW|true
+/moment.js|Exposed JavaScript Library|LOW|true
+/moment.min.js|Exposed JavaScript Library|LOW|true
+/lodash.js|Exposed JavaScript Library|LOW|true
+/lodash.min.js|Exposed JavaScript Library|LOW|true
+/underscore.js|Exposed JavaScript Library|LOW|true
+/underscore.min.js|Exposed JavaScript Library|LOW|true
+/chart.js|Exposed JavaScript Library|LOW|true
+/chart.min.js|Exposed JavaScript Library|LOW|true
+/echarts.min.js|Exposed JavaScript Library|LOW|true
+/d3.js|Exposed JavaScript Library|LOW|true
+/d3.min.js|Exposed JavaScript Library|LOW|true
+/three.js|Exposed JavaScript Library|LOW|true
+/three.min.js|Exposed JavaScript Library|LOW|true
+/swiper.js|Exposed JavaScript Library|LOW|true
+/swiper.min.js|Exposed JavaScript Library|LOW|true
+/gsap.js|Exposed JavaScript Library|LOW|true
+/gsap.min.js|Exposed JavaScript Library|LOW|true
+/slick.js|Exposed JavaScript Library|LOW|true
+/slick.min.js|Exposed JavaScript Library|LOW|true
+/owl.carousel.js|Exposed JavaScript Library|LOW|true
+/owl.carousel.min.js|Exposed JavaScript Library|LOW|true
