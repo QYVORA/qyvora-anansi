@@ -293,25 +293,34 @@ with **no arguments** drops you into an interactive Metasploit-style console
 ```
 $ anansi
 
-  [ANANSI ASCII-ART BANNER]
+  [ANANSI ASCII-ART BANNER]          (green)
 
   Attack Surface Intelligence Engine
   QYVORA OffSec — https://qyvora.netlify.app
+  Built in Tamale, Ghana
 
+  [>] v dev
   type 'help' for the command list, 'options' to view scan options.
 
+▮ rhosts none  ·  module none                      v dev
 anansi > set RHOSTS target.com
-RHOSTS => target.com
+  [*] RHOSTS => target.com
+▮ rhosts target.com  ·  module none                v dev
 anansi > set THREADS 200
-THREADS => 200
+  [*] THREADS => 200
 anansi > run
 ...
 anansi > use paths
-Using module paths
+  [*] Using module paths
+▮ rhosts target.com  ·  module paths               v dev
 anansi[paths] > info
 anansi[paths] > back
+  [-] Module deselected.
 anansi > exit
 ```
+
+A live status strip above the prompt tracks the current `RHOSTS` and module
+context, and the prompt carries the selected module (`anansi[paths] >`).
 
 CLI flags passed without a target are inherited by the console as initial
 options, so `anansi --deep --threads 250` starts the REPL with those values
