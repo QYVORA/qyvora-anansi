@@ -27,6 +27,33 @@ var (
 	greenDim  = color.New(color.FgGreen)
 )
 
+// ANSI palette for the ANANSI banner. ansiBody is the logo cyan (#10B0E8);
+// ansiFace renders the logo's near-black face detail white so it stays
+// visible on a dark terminal. True-color codes are emitted directly because
+// the bundled fatih/color version predates color.RGB.
+const (
+	ansiBody = "\x1b[38;2;16;176;232m"
+	ansiFace = "\x1b[38;2;255;255;255m"
+)
+
+// renderBannerLine paints one line of the ANANSI art in the logo palette:
+// ';' is the cyan spider body, the remaining glyphs are the face detail
+// rendered white. Spaces pass through untouched.
+func renderBannerLine(line string) string {
+	var b strings.Builder
+	for _, r := range line {
+		switch {
+		case r == ' ':
+			b.WriteRune(r)
+		case r == ';':
+			b.WriteString(ansiBody + string(r) + "\x1b[0m")
+		default:
+			b.WriteString(ansiFace + string(r) + "\x1b[0m")
+		}
+	}
+	return b.String()
+}
+
 // Renderer manages output formatting and verbosity.  It is created once per
 // scan and passed to every module so they can display progress inline.
 type Renderer struct {
@@ -84,7 +111,7 @@ func (r *Renderer) Banner(target string) {
 	}
 	fmt.Println()
 	for _, line := range strings.Split(AnansiASCIIArt, "\n") {
-		accent.Println(line)
+		fmt.Println(renderBannerLine(line))
 	}
 	fmt.Println()
 	fmt.Println()

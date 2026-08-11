@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
 )
 
 func newTestSession() (*consoleSession, *bytes.Buffer) {
@@ -400,4 +402,37 @@ func TestConsoleOptionsTruncatesLongValues(t *testing.T) {
 		}
 	}
 	t.Fatal("MODULES line not found in options output")
+}
+
+func TestConsoleBannerLogoPalette(t *testing.T) {
+	nBody, nFace := 0, 0
+	for _, line := range strings.Split(output.AnansiASCIIArt, "\n") {
+		for _, r := range line {
+			switch r {
+			case ' ':
+			case ';':
+				nBody++
+			default:
+				nFace++
+			}
+		}
+	}
+
+	var colored bytes.Buffer
+	uc := newConsoleUI(&colored, true)
+	uc.Banner()
+	out := colored.String()
+	if got := strings.Count(out, ansiCyan); got != nBody {
+		t.Errorf("cyan body codes = %d, want %d", got, nBody)
+	}
+	if got := strings.Count(out, ansiFace); got != nFace {
+		t.Errorf("white face codes = %d, want %d", got, nFace)
+	}
+
+	var plain bytes.Buffer
+	up := newConsoleUI(&plain, false)
+	up.Banner()
+	if strings.Contains(plain.String(), "\x1b") {
+		t.Error("banner must be plain when colors are disabled")
+	}
 }

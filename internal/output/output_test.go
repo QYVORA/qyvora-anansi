@@ -282,3 +282,31 @@ func TestProgressRendersOnTTY(t *testing.T) {
 		t.Errorf("tty progress frame not rendered: %q", out)
 	}
 }
+
+func TestRenderBannerLineLogoPalette(t *testing.T) {
+	nBody, nFace := 0, 0
+	for _, line := range strings.Split(AnansiASCIIArt, "\n") {
+		for _, r := range line {
+			switch r {
+			case ' ':
+			case ';':
+				nBody++
+			default:
+				nFace++
+			}
+		}
+	}
+	rendered := ""
+	for _, line := range strings.Split(AnansiASCIIArt, "\n") {
+		rendered += renderBannerLine(line) + "\n"
+	}
+	if got := strings.Count(rendered, ansiBody); got != nBody {
+		t.Errorf("cyan body codes = %d, want %d (one per ';' glyph)", got, nBody)
+	}
+	if got := strings.Count(rendered, ansiFace); got != nFace {
+		t.Errorf("white face codes = %d, want %d (one per face glyph)", got, nFace)
+	}
+	if strings.Contains(rendered, ansiBody+" ") || strings.Contains(rendered, ansiFace+" ") {
+		t.Error("spaces must not be wrapped in color codes")
+	}
+}

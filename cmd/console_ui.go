@@ -25,6 +25,13 @@ var (
 	cpRedDim    = color.New(color.FgRed)
 )
 
+// ansiCyan is the ANANSI logo cyan (#10B0E8); ansiFace renders the logo's
+// near-black face detail white so it stays visible on a dark terminal.
+const (
+	ansiCyan = "\x1b[38;2;16;176;232m"
+	ansiFace = "\x1b[38;2;255;255;255m"
+)
+
 // consoleUI renders the console chrome: colored banner, status strip,
 // sectioned help tables, and status glyphs.  Color is applied only when the
 // session runs on a real terminal so piped/scripted output stays clean.
@@ -123,11 +130,29 @@ func (u *consoleUI) Prompt(name string) string {
 	return u.paint(cpAccent, name) + u.paint(cpWhite, " > ")
 }
 
-// Banner prints the ANANSI spider art, tagline, and build footer.
+// bannerGlyph paints one glyph of the ANANSI art in the logo palette: ';' is
+// the cyan spider body, the remaining glyphs are the face detail rendered
+// white. Spaces and plain (color-off) output pass through untouched.
+func (u *consoleUI) bannerGlyph(r rune) string {
+	if !u.color || r == ' ' {
+		return string(r)
+	}
+	if r == ';' {
+		return ansiCyan + string(r) + "\x1b[0m"
+	}
+	return ansiFace + string(r) + "\x1b[0m"
+}
+
+// Banner prints the ANANSI spider art in the logo palette (cyan body, white
+// face details), the tagline, and build footer.
 func (u *consoleUI) Banner() {
 	fmt.Fprintln(u.w)
 	for _, line := range strings.Split(output.AnansiASCIIArt, "\n") {
-		fmt.Fprintln(u.w, u.paint(cpAccent, line))
+		var b strings.Builder
+		for _, r := range line {
+			b.WriteString(u.bannerGlyph(r))
+		}
+		fmt.Fprintln(u.w, b.String())
 	}
 	fmt.Fprintln(u.w)
 	fmt.Fprintln(u.w, u.paint(cpWhite, "  Attack Surface Intelligence Engine"))
