@@ -229,6 +229,60 @@ configure_path() {
 }
 
 # ---------------------------------------------------------------------------
+# Desktop integration (Linux only): install the app icon and a .desktop entry
+# so anansi shows up with its logo in GNOME's search/app grid. Data goes next
+# to the binary:  ~/.local/bin -> ~/.local/share,  /usr/local/bin -> /usr/local/share
+# ---------------------------------------------------------------------------
+install_desktop_integration() {
+    [ "$(uname -s)" = "Linux" ] || return 0
+
+    local dest="$1" dataroot icon_dir apps_dir
+    case "$dest" in
+        */bin) dataroot="$(dirname "$dest")/share" ;;
+        *)     dataroot="$dest/share" ;;
+    esac
+    icon_dir="$dataroot/icons/hicolor/512x512/apps"
+    apps_dir="$dataroot/applications"
+
+    local icon_src="${WORK_DIR}/anansi.png"
+    if [ -f "$PWD/assets/anansi.png" ]; then
+        icon_src="$PWD/assets/anansi.png"
+    elif [ ! -f "$icon_src" ] && [ -f "${WORK_DIR}/src/assets/anansi.png" ]; then
+        icon_src="${WORK_DIR}/src/assets/anansi.png"
+    fi
+
+    if [ ! -f "$icon_src" ]; then
+        warn "No icon found; skipping desktop integration."
+        return 0
+    fi
+
+    mkdir -p "$icon_dir" "$apps_dir"
+    install -m 0644 "$icon_src" "$icon_dir/anansi.png"
+
+    local desktop="$apps_dir/anansi.desktop"
+    if [ ! -f "$desktop" ]; then
+        cat >"$desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=ANANSI
+GenericName=Attack Surface Intelligence Engine
+Comment=Attack Surface Intelligence Engine for web recon and OSINT
+Exec=$dest/anansi
+Icon=$icon_dir/anansi.png
+Terminal=true
+Categories=Utility;Network;Security;Development;
+Keywords=recon;osint;subdomain;enumeration;probe;tls;headers;security;web;
+EOF
+    fi
+    chmod 0644 "$desktop"
+    ok "Installed desktop entry: ${desktop}"
+    ok "Installed app icon: ${icon_dir}/anansi.png"
+
+    command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$apps_dir" >/dev/null 2>&1 || true
+    command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache "$dataroot/icons/hicolor" >/dev/null 2>&1 || true
+}
+
+# ---------------------------------------------------------------------------
 # Verify the installation
 # ---------------------------------------------------------------------------
 verify() {
@@ -279,6 +333,8 @@ main() {
     final_dest=$(install_binary "$dest")
 
     configure_path "$final_dest" "$rc"
+
+    install_desktop_integration "$final_dest"
 
     if verify "$final_dest"; then
         log "Done."

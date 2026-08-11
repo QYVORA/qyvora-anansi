@@ -160,7 +160,8 @@ The installer:
    against the published `checksums.txt` (supply-chain protection)
 3. Falls back to building from source (needs Go) if the download is unavailable
 4. Installs to `~/.local/bin` (no sudo needed) and adds it to your shell config
-5. Confirms the install by printing the version
+5. On Linux, installs the app icon + desktop entry so `anansi` appears with its logo in the app menu
+6. Confirms the install by printing the version
 
 ### Option 2 — Manual binary download (no Go required)
 
@@ -203,6 +204,18 @@ cd qyvora-anansi-cli
 ```
 
 The binary has **zero runtime dependencies**.
+
+### Option 4 — Install from a source checkout (logo + app menu)
+
+Installs the app icon and a `.desktop` entry so `anansi` shows up in your app
+menu with its logo (same layout as a regular install):
+
+```bash
+make install-user     # ~/.local/bin + ~/.local/share  (no sudo)
+sudo make install     # /usr/local/bin + /usr/local/share (system-wide)
+```
+
+Uninstall with `make uninstall-user` (user) or `sudo make uninstall`.
 
 ---
 

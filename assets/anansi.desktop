@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=ANANSI
+GenericName=Attack Surface Intelligence Engine
+Comment=Attack Surface Intelligence Engine for web recon and OSINT
+Exec=@PREFIX@/bin/anansi
+Icon=@PREFIX@/share/icons/hicolor/512x512/apps/anansi.png
+Terminal=true
+Categories=Utility;Network;Security;Development;
+Keywords=recon;osint;subdomain;enumeration;probe;tls;headers;security;web;

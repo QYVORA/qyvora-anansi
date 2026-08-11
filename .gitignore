@@ -1,6 +1,7 @@
 # Binaries
 anansi
 anansi.exe
+bin/
 
 # AI session files
 continue_AI.md
