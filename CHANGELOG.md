@@ -21,7 +21,7 @@
 - New `scan <target>` subcommand: the REPL habit now works at the CLI instead
   of silently treating "scan" as the target domain
 - The interactive console degrades to plain line-reading (with a notice) if
-  the line editor cannot start, instead of dying with a cryptic liner error
+  the line editor cannot start, instead of dying with a cryptic error
   and dumping cobra usage
 - `options` truncates long values so columns no longer collide
 - A signal arriving after a scan completes can no longer print a spurious
@@ -31,7 +31,12 @@
 - `set RHOSTS <target>` + `run` mirrors the classic Metasploit flow; `use
   <module>` + `run` restricts a scan to a single module
 - Arrow-key history, tab completion (commands, options, modules), and
-  persistent history in `~/.anansi_history` via `peterh/liner`
+  persistent history in `~/.anansi_history` via `chzyer/readline` (same line
+  editor as the sibling JABARI console)
+- Console chrome upgraded to match the scan experience: green spider banner
+  with version footer, a live status strip (`▮ rhosts ... module ... · v dev`)
+  above every prompt, sectioned help tables, colored status glyphs, and a
+  bold-green prompt that carries the module context (`anansi[paths] >`)
 - Piped input is supported, so console sessions can be scripted
 - Ctrl+C during a console scan prints partial results and returns to the
   prompt instead of killing the process

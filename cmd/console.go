@@ -10,11 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/fatih/color"
+	"github.com/chzyer/readline"
 	"github.com/mattn/go-isatty"
-	"github.com/peterh/liner"
-
-	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
 )
 
 // consoleOption describes a single configurable scan option exposed by the
@@ -73,6 +70,8 @@ var consoleCommands = []string{
 type consoleSession struct {
 	out     io.Writer
 	tty     bool
+	ui      *consoleUI
+	rl      *readline.Instance
 	values  map[string]string
 	history []string
 	module  string
@@ -84,6 +83,7 @@ func newConsoleSession(out io.Writer, tty bool) *consoleSession {
 	s := &consoleSession{
 		out:    out,
 		tty:    tty,
+		ui:     newConsoleUI(out, tty),
 		values: make(map[string]string, len(consoleOptions)),
 	}
 	for _, o := range consoleOptions {
@@ -149,16 +149,15 @@ func (s *consoleSession) run() error {
 	return s.runPlain()
 }
 
-// welcome prints the startup banner and a help hint on a real terminal only
-// (msfconsole-style).  Piped sessions stay quiet so scripts get clean output.
+// welcome prints the startup banner, version footer and a help hint on a real
+// terminal only (msfconsole-style).  Piped sessions stay quiet so scripts get
+// clean output.
 func (s *consoleSession) welcome() {
 	if !s.tty {
 		return
 	}
-	s.printBanner()
-	fmt.Fprintln(s.out)
-	fmt.Fprintln(s.out, "  type 'help' for the command list, 'options' to view scan options.")
-	fmt.Fprintln(s.out)
+	s.ui.Banner()
+	s.ui.BannerFoot()
 }
 
 // runPlain reads one command per line from stdin without line editing.  This
@@ -182,45 +181,50 @@ func (s *consoleSession) runPlain() error {
 }
 
 // runLiner runs the REPL on a real terminal with arrow-key history, tab
-// completion and a persistent history file (Metasploit-console style).
+// completion, a colored prompt and a persistent history file (Metasploit-
+// console style).  The line editor is readline (the same library as the
+// sibling JABARI console), which unlike liner accepts ANSI-colored prompts.
 func (s *consoleSession) runLiner() error {
-	rl := liner.NewLiner()
-	defer func() { _ = rl.Close() }()
-	rl.SetCtrlCAborts(true)
-	rl.SetMultiLineMode(false)
-	rl.SetCompleter(s.complete)
-
-	if path, err := s.historyPath(); err == nil {
-		if f, err := os.Open(path); err == nil {
-			_, _ = rl.ReadHistory(f)
-			_ = f.Close()
-		}
+	path, _ := s.historyPath()
+	rl, err := readline.NewEx(&readline.Config{
+		Prompt:          s.prompt(),
+		HistoryFile:     path,
+		AutoComplete:    sessionCompleter{s},
+		InterruptPrompt: "^C",
+	})
+	if err != nil {
+		// The line editor could not start (e.g. a broken stdin or a pty
+		// with no window size).  Rather than dying with a cryptic error and
+		// dumping cobra usage, degrade gracefully to plain line-by-line
+		// reading.
+		fmt.Fprintf(s.out, "line editing unavailable (%v); continuing in plain mode\n", err)
+		return s.runPlain()
 	}
+	defer func() { _ = rl.Close() }()
+	s.rl = rl
 
 	for {
-		line, err := rl.Prompt(s.prompt())
+		if w := terminalWidth(); w > 0 {
+			s.ui.width = w
+		}
+		s.ui.HUD(s)
+		line, err := rl.Readline()
 		if err != nil {
-			if errors.Is(err, liner.ErrPromptAborted) {
+			if errors.Is(err, readline.ErrInterrupt) {
+				// Ctrl-C aborts the current line; return to the prompt.
 				fmt.Fprintln(s.out)
 				continue
 			}
-			if errors.Is(err, io.EOF) {
-				fmt.Fprintln(s.out)
-				break
-			}
-			// The line editor could not start (e.g. a terminal liner cannot
-			// query, a pty with no window size, or a broken stdin).  Rather
-			// than dying with a cryptic error and dumping cobra usage, degrade
-			// gracefully to plain line-by-line reading.
-			fmt.Fprintf(s.out, "line editing unavailable (%v); continuing in plain mode\n", err)
-			return s.runPlain()
+			// EOF (Ctrl-D): leave the console.
+			fmt.Fprintln(s.out)
+			return nil
 		}
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		rl.AppendHistory(line)
 		done, herr := s.handleLine(line)
+		s.refreshPrompt()
 		if herr != nil {
 			fmt.Fprintln(s.out, herr)
 		}
@@ -228,14 +232,15 @@ func (s *consoleSession) runLiner() error {
 			break
 		}
 	}
-
-	if path, err := s.historyPath(); err == nil {
-		if f, err := os.Create(path); err == nil {
-			_, _ = rl.WriteHistory(f)
-			_ = f.Close()
-		}
-	}
 	return nil
+}
+
+// refreshPrompt re-renders the readline prompt after the module context
+// changes (use/back) so it stays in sync with the session state.
+func (s *consoleSession) refreshPrompt() {
+	if s.rl != nil {
+		s.rl.SetPrompt(s.prompt())
+	}
 }
 
 // historyPath returns the location of the console history file.
@@ -247,18 +252,18 @@ func (s *consoleSession) historyPath() (string, error) {
 	return filepath.Join(home, ".anansi_history"), nil
 }
 
-// prompt renders the Metasploit-style prompt.  In a terminal it is colored and
-// shows the selected module context, e.g. "anansi[paths] > ".
+// prompt renders the Metasploit-style prompt.  In a terminal it is colored
+// green (the ANANSI accent) and shows the selected module context, e.g.
+// "anansi[paths] > ".
 func (s *consoleSession) prompt() string {
 	p := "anansi"
 	if s.module != "" {
 		p += "[" + s.module + "]"
 	}
-	p += " > "
 	if s.tty {
-		return color.New(color.FgCyan, color.Bold).Sprint(p)
+		return s.ui.Prompt(p)
 	}
-	return p
+	return p + " > "
 }
 
 // handleLine parses and dispatches a single console command.  It returns
@@ -277,9 +282,9 @@ func (s *consoleSession) handleLine(line string) (bool, error) {
 	case "help", "?":
 		s.printHelp()
 	case "banner":
-		s.printBanner()
+		s.ui.Banner()
 	case "version":
-		fmt.Fprintln(s.out, Version)
+		s.ui.Status(">", "v %s", Version)
 	case "history":
 		for i, h := range s.history {
 			fmt.Fprintf(s.out, "%4d  %s\n", i+1, h)
@@ -306,7 +311,7 @@ func (s *consoleSession) handleLine(line string) (bool, error) {
 		return false, s.handleUse(args)
 	case "back":
 		s.module = ""
-		fmt.Fprintln(s.out, "Module deselected.")
+		s.ui.Status("-", "Module deselected.")
 	case "search":
 		s.search(strings.Join(args, " "))
 	case "scan", "run":
@@ -325,14 +330,14 @@ func (s *consoleSession) handleSet(args []string) error {
 	value := strings.Join(args[1:], " ")
 	if name == "RHOSTS" {
 		s.values[name] = value
-		fmt.Fprintf(s.out, "%s => %s\n", name, value)
+		s.ui.Status("*", "%s => %s", name, value)
 		return nil
 	}
 	if err := applyOption(name, value); err != nil {
 		return err
 	}
 	s.values[name] = value
-	fmt.Fprintf(s.out, "%s => %s\n", name, value)
+	s.ui.Status("*", "%s => %s", name, value)
 	return nil
 }
 
@@ -347,7 +352,7 @@ func (s *consoleSession) handleUnset(args []string) error {
 	}
 	_ = applyOption(name, opt.def)
 	s.values[name] = opt.def
-	fmt.Fprintf(s.out, "%s => %s\n", name, opt.def)
+	s.ui.Status("-", "%s => %s (default)", name, opt.def)
 	return nil
 }
 
@@ -360,7 +365,7 @@ func (s *consoleSession) handleUse(args []string) error {
 		return fmt.Errorf("unknown module %q (available: %s)", module, strings.Join(defaultModules, ", "))
 	}
 	s.module = module
-	fmt.Fprintf(s.out, "Using module %s\n", module)
+	s.ui.Status("*", "Using module %s", module)
 	return nil
 }
 
@@ -399,67 +404,56 @@ func (s *consoleSession) runTargetScan(target string) error {
 }
 
 func (s *consoleSession) printHelp() {
-	_, _ = fmt.Fprint(s.out, `
-Core Commands
-=============
-
-    Command          Description
-    -------          -----------
-    banner           Print the ANANSI banner
-    help             Show this help menu
-    version          Show version information
-    history          Show command history
-    clear            Clear the screen
-    exit             Leave the console
-
-Module Commands
-===============
-
-    Command          Description
-    -------          -----------
-    use <module>     Select a scan module (e.g. use paths)
-    back             Deselect the current module
-    info             Show module or option information
-    search <text>    Search modules and options
-
-Scan Commands
-=============
-
-    Command          Description
-    -------          -----------
-    scan <target>    Run a full scan against <target>
-    run [target]     Run a scan; falls back to RHOSTS, honors the selected module
-    set <opt> <v>    Set a scan option (e.g. set THREADS 200)
-    unset <opt>      Restore an option's default value
-    options          Show the current option values
-`)
+	u := s.ui
+	u.Section("Core Commands")
+	u.Table([]string{"Command", "Description"}, [][]string{
+		{"banner", "Print the ANANSI banner"},
+		{"help", "Show this help menu"},
+		{"version", "Show version information"},
+		{"history", "Show command history"},
+		{"clear", "Clear the screen"},
+		{"exit", "Leave the console"},
+	})
+	u.Section("Module Commands")
+	u.Table([]string{"Command", "Description"}, [][]string{
+		{"use <module>", "Select a scan module (e.g. use paths)"},
+		{"back", "Deselect the current module"},
+		{"info", "Show module or option information"},
+		{"search <text>", "Search modules and options"},
+	})
+	u.Section("Scan Commands")
+	u.Table([]string{"Command", "Description"}, [][]string{
+		{"scan <target>", "Run a full scan against <target>"},
+		{"run [target]", "Run a scan; falls back to RHOSTS, honors the selected module"},
+		{"set <opt> <v>", "Set a scan option (e.g. set THREADS 200)"},
+		{"unset <opt>", "Restore an option's default value"},
+		{"options", "Show the current option values"},
+	})
+	u.Rule()
 }
 
 func (s *consoleSession) printBanner() {
-	fmt.Fprintln(s.out)
-	for _, line := range strings.Split(output.AnansiASCIIArt, "\n") {
-		fmt.Fprintln(s.out, line)
-	}
-	fmt.Fprintln(s.out)
-	fmt.Fprintln(s.out, "  Attack Surface Intelligence Engine")
-	fmt.Fprintf(s.out, "  %s — %s\n", output.CompanyName, output.CompanyURL)
-	fmt.Fprintf(s.out, "  Built in %s\n\n", output.BuiltIn)
+	s.ui.Banner()
 }
 
 func (s *consoleSession) printOptions() {
-	fmt.Fprintln(s.out)
-	fmt.Fprintln(s.out, "Scan Options")
-	fmt.Fprintln(s.out, "============")
+	u := s.ui
+	fmt.Fprintln(u.w)
+	u.Section("Scan Options")
 	for _, o := range consoleOptions {
 		val := s.values[o.name]
 		if len(val) > 24 {
 			val = val[:21] + "..."
 		}
-		fmt.Fprintf(s.out, "  %-12s = %-24s %s\n", o.name, val, o.desc)
+		fmt.Fprintf(u.w, "  %s %s %s %s\n",
+			u.paint(cpDim, o.name),
+			u.paint(cpWhite, "="),
+			u.paint(cpWhite, val),
+			u.paint(cpDim, o.desc))
 	}
-	fmt.Fprintln(s.out)
+	fmt.Fprintln(u.w)
 	if s.module != "" {
-		fmt.Fprintf(s.out, "Current module: %s\n", s.module)
+		u.Status("*", "Current module: %s", s.module)
 	}
 }
 
@@ -468,15 +462,17 @@ func (s *consoleSession) printInfo(args []string) {
 		name := strings.ToUpper(args[0])
 		opt := findOption(name)
 		if opt == nil {
-			fmt.Fprintf(s.out, "unknown option %q\n", name)
+			s.ui.Status("!", "unknown option %q", name)
 			return
 		}
-		fmt.Fprintf(s.out, "%s (default: %s)\n  %s\n", opt.name, opt.def, opt.desc)
+		s.ui.Status("*", "%s (default: %s)", opt.name, opt.def)
+		fmt.Fprintf(s.out, "  %s\n", opt.desc)
 		return
 	}
 	if s.module != "" {
 		desc := moduleDescriptions[s.module]
-		fmt.Fprintf(s.out, "Module: %s\n  %s\n", s.module, desc)
+		s.ui.Status("*", "Module: %s", s.module)
+		fmt.Fprintf(s.out, "  %s\n", desc)
 		return
 	}
 	s.printOptions()
@@ -491,22 +487,23 @@ func (s *consoleSession) search(query string) {
 	found := false
 	for _, o := range consoleOptions {
 		if strings.Contains(strings.ToLower(o.name), query) || strings.Contains(strings.ToLower(o.desc), query) {
-			fmt.Fprintf(s.out, "  [option] %-12s %s\n", o.name, o.desc)
+			fmt.Fprintf(s.out, "  %s %-12s %s\n", s.ui.paint(cpDim, "[option]"), s.ui.paint(cpWhite, o.name), o.desc)
 			found = true
 		}
 	}
 	for name, desc := range moduleDescriptions {
 		if strings.Contains(strings.ToLower(name), query) || strings.Contains(strings.ToLower(desc), query) {
-			fmt.Fprintf(s.out, "  [module] %-12s %s\n", name, desc)
+			fmt.Fprintf(s.out, "  %s %-12s %s\n", s.ui.paint(cpDim, "[module]"), s.ui.paint(cpWhite, name), desc)
 			found = true
 		}
 	}
 	if !found {
-		fmt.Fprintf(s.out, "No matches for %q.\n", query)
+		s.ui.Status("!", "No matches for %q.", query)
 	}
 }
 
 // complete provides tab completion for commands, options and module names.
+// It returns candidate tokens for the last word on the line.
 func (s *consoleSession) complete(line string) []string {
 	fields := strings.Fields(line)
 	if len(fields) == 0 {
@@ -540,6 +537,33 @@ func (s *consoleSession) complete(line string) []string {
 		return out
 	}
 	return []string{}
+}
+
+// autoComplete adapts the token completer to the readline interface: it
+// returns the candidate completions for the word under the cursor together
+// with the number of typed runes to replace.
+func (s *consoleSession) autoComplete(line []rune, pos int) ([][]rune, int) {
+	typed := string(line[:pos])
+	cands := s.complete(typed)
+	length := 0
+	if fields := strings.Fields(typed); len(fields) > 0 {
+		length = len([]rune(fields[len(fields)-1]))
+	}
+	out := make([][]rune, 0, len(cands))
+	for _, c := range cands {
+		out = append(out, []rune(c))
+	}
+	return out, length
+}
+
+// sessionCompleter adapts the session's token completer to readline's
+// AutoCompleter interface.
+type sessionCompleter struct {
+	s *consoleSession
+}
+
+func (c sessionCompleter) Do(line []rune, pos int) ([][]rune, int) {
+	return c.s.autoComplete(line, pos)
 }
 
 func findOption(name string) *consoleOption {

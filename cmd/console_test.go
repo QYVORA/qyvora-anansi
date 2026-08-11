@@ -258,8 +258,8 @@ func TestConsoleVersion(t *testing.T) {
 	if _, err := s.handleLine("version"); err != nil {
 		t.Fatalf("version: %v", err)
 	}
-	if got := buf.String(); got != "console-9.9.9\n" {
-		t.Errorf("version printed %q, want %q", got, "console-9.9.9\n")
+	if got := buf.String(); got != "  [>] v console-9.9.9\n" {
+		t.Errorf("version printed %q, want %q", got, "  [>] v console-9.9.9\n")
 	}
 }
 
