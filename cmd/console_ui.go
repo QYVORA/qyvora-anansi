@@ -186,7 +186,11 @@ func (u *consoleUI) HUD(s *consoleSession) {
 	kv := func(k, v string) string {
 		return u.paintf(cpDim, "%s ", k) + u.paint(cpWhite, v)
 	}
-	left := kv("rhosts", rhosts) + u.paintf(cpDim, "  ·  ") + kv("module", module)
+	cwd := s.cwd
+	if cwd == "" {
+		cwd = "?"
+	}
+	left := kv("rhosts", rhosts) + u.paintf(cpDim, "  ·  ") + kv("module", module) + u.paintf(cpDim, "  ·  ") + kv("cwd", cwd)
 	right := u.paintf(cpAccent, "v %s", Version)
 
 	cols := u.width

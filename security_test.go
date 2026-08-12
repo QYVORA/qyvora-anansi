@@ -38,6 +38,14 @@ func sourceFiles(t *testing.T) []string {
 // commands on the operator's machine.  A CLI that can run subprocesses would
 // turn any spoofed wordlist or compromised dependency into code execution.
 // The tool must never import os/exec in non-test code.
+//
+// The single deliberate exception is cmd/shell.go: the operator-initiated
+// shell escape hatch (`!command`, `shell`, `cd`, `pwd`) — the equivalent of
+// Metasploit's `shell` and bettercap's `!` commands. It only ever runs a
+// command the human explicitly typed at the console prompt; it is never
+// called from scan/parse/report code paths and cannot be reached by untrusted
+// input (wordlists, scan results, configs). No new os/exec use may be added
+// anywhere else.
 func TestNoProcessSpawn(t *testing.T) {
 	for _, file := range sourceFiles(t) {
 		data, err := os.ReadFile(file)
@@ -45,6 +53,9 @@ func TestNoProcessSpawn(t *testing.T) {
 			t.Fatalf("reading %s: %v", file, err)
 		}
 		if strings.Contains(string(data), `"os/exec"`) {
+			if file == "cmd/shell.go" {
+				continue // documented operator-initiated shell escape hatch
+			}
 			t.Errorf("%s imports os/exec: subprocess execution is forbidden (RCE backdoor surface)", file)
 		}
 	}

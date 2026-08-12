@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -434,5 +436,174 @@ func TestConsoleBannerLogoPalette(t *testing.T) {
 	up.Banner()
 	if strings.Contains(plain.String(), "\x1b") {
 		t.Error("banner must be plain when colors are disabled")
+	}
+}
+
+func TestConsolePWDSession(t *testing.T) {
+	s, buf := newTestSession()
+	start, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	if s.cwd != start {
+		t.Fatalf("session cwd = %q, want %q", s.cwd, start)
+	}
+	buf.Reset()
+	if _, err := s.handleLine("pwd"); err != nil {
+		t.Fatalf("pwd: %v", err)
+	}
+	if got := strings.TrimSpace(buf.String()); got != start {
+		t.Errorf("pwd printed %q, want %q", got, start)
+	}
+}
+
+func TestConsoleCD(t *testing.T) {
+	s, _ := newTestSession()
+	dir := t.TempDir()
+
+	if _, err := s.handleLine("cd " + dir); err != nil {
+		t.Fatalf("cd %s: %v", dir, err)
+	}
+	if s.cwd != filepath.Clean(dir) {
+		t.Errorf("cwd after cd = %q, want %q", s.cwd, filepath.Clean(dir))
+	}
+
+	sub := filepath.Join(dir, "nested")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if _, err := s.handleLine("cd nested"); err != nil {
+		t.Fatalf("cd nested: %v", err)
+	}
+	if s.cwd != sub {
+		t.Errorf("cwd after cd nested = %q, want %q", s.cwd, sub)
+	}
+
+	if _, err := s.handleLine("cd .."); err != nil {
+		t.Fatalf("cd ..: %v", err)
+	}
+	if s.cwd != filepath.Clean(dir) {
+		t.Errorf("cwd after cd .. = %q, want %q", s.cwd, filepath.Clean(dir))
+	}
+}
+
+func TestConsoleCDErrors(t *testing.T) {
+	s, _ := newTestSession()
+	if _, err := s.handleLine("cd /definitely/not/a/real/path"); err == nil {
+		t.Error("cd to a missing path expected error")
+	}
+	file := filepath.Join(t.TempDir(), "afile")
+	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if _, err := s.handleLine("cd " + file); err == nil {
+		t.Error("cd to a file expected error")
+	}
+}
+
+func TestConsoleShellKind(t *testing.T) {
+	cases := map[string]string{
+		"ls -la":       "",
+		"!ls -la":      "shell",
+		"!pwd":         "shell",
+		"shell":        "interactive",
+		"shell ls -la": "shell",
+		"cd /tmp":      "shell",
+		"pwd":          "shell",
+		"scan x.com":   "",
+		"  !ls":        "shell",
+		"":             "",
+	}
+	for line, want := range cases {
+		if got := shellKind(line); got != want {
+			t.Errorf("shellKind(%q) = %q, want %q", line, got, want)
+		}
+	}
+	if !isInteractiveShell("shell") {
+		t.Error("isInteractiveShell(shell) = false, want true")
+	}
+	if isInteractiveShell("shell ls -la") {
+		t.Error("isInteractiveShell(shell ls -la) = true, want false")
+	}
+}
+
+func TestConsoleBangEmptyCommand(t *testing.T) {
+	s, _ := newTestSession()
+	if _, err := s.handleLine("!"); err == nil {
+		t.Error("bare ! expected error")
+	}
+}
+
+func TestConsoleShellCommandOutput(t *testing.T) {
+	s, _ := newTestSession()
+	dir := t.TempDir()
+	if _, err := s.handleLine("cd " + dir); err != nil {
+		t.Fatalf("cd: %v", err)
+	}
+	// A one-shot shell command must run from the session cwd.
+	if err := s.runShell("echo 'shell-integration-works'"); err != nil {
+		t.Fatalf("runShell: %v", err)
+	}
+	// A failing command is not surfaced as a console error.
+	if err := s.runShell("exit 3"); err != nil {
+		t.Errorf("runShell exit 3: %v", err)
+	}
+	// A genuinely broken invocation is surfaced.
+	if err := s.runShell("\x00"); err == nil {
+		t.Error("runShell with a NUL byte expected error")
+	}
+}
+
+func TestConsoleCompleteDir(t *testing.T) {
+	s, _ := newTestSession()
+	dir := t.TempDir()
+	if _, err := s.handleLine("cd " + dir); err != nil {
+		t.Fatalf("cd: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "alpha"), 0o755); err != nil {
+		t.Fatalf("mkdir alpha: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "beta"), 0o755); err != nil {
+		t.Fatalf("mkdir beta: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "alpha.txt"), []byte("x"), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	got := s.completeDir("al")
+	if len(got) != 2 {
+		t.Fatalf("completeDir(al) = %v, want 2 entries", got)
+	}
+	if got[0] != "alpha/" {
+		t.Errorf("completeDir(al)[0] = %q, want alpha/", got[0])
+	}
+}
+
+func TestConsoleOptionBounds(t *testing.T) {
+	s, _ := newTestSession()
+
+	for _, bad := range [][2]string{
+		{"THREADS", "0"},
+		{"THREADS", "-5"},
+		{"TIMEOUT", "0"},
+		{"TIMEOUT", "-1"},
+		{"DELAY", "-3"},
+		{"PORTS", "80,99999"},
+		{"PORTS", "80,4x3"},
+	} {
+		if _, err := s.handleLine("set " + bad[0] + " " + bad[1]); err == nil {
+			t.Errorf("set %s %s expected error", bad[0], bad[1])
+		}
+	}
+
+	for _, good := range [][2]string{
+		{"THREADS", "1"},
+		{"TIMEOUT", "3600"},
+		{"DELAY", "0"},
+		{"PORTS", "80,443,8080"},
+	} {
+		if _, err := s.handleLine("set " + good[0] + " " + good[1]); err != nil {
+			t.Errorf("set %s %s unexpected error: %v", good[0], good[1], err)
+		}
 	}
 }

@@ -61,8 +61,8 @@ var moduleDescriptions = map[string]string{
 
 // consoleCommands is the set of commands offered by the console prompt.
 var consoleCommands = []string{
-	"back", "banner", "clear", "exit", "help", "history", "info",
-	"options", "quit", "run", "scan", "search", "set", "show", "unset", "use", "version",
+	"back", "banner", "cd", "clear", "exit", "help", "history", "info",
+	"options", "pwd", "quit", "run", "scan", "search", "set", "shell", "show", "unset", "use", "version",
 }
 
 // consoleSession is the state of a single interactive console run.  It owns
@@ -75,16 +75,21 @@ type consoleSession struct {
 	values  map[string]string
 	history []string
 	module  string
+	cwd     string
 }
 
 // newConsoleSession creates a session and resets every scan option (and the
-// backing global flags) to its default value.
+// backing global flags) to its default value. The session working directory
+// starts at the directory the tool was launched from.
 func newConsoleSession(out io.Writer, tty bool) *consoleSession {
 	s := &consoleSession{
 		out:    out,
 		tty:    tty,
 		ui:     newConsoleUI(out, tty),
 		values: make(map[string]string, len(consoleOptions)),
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		s.cwd = cwd
 	}
 	for _, o := range consoleOptions {
 		s.values[o.name] = o.def
@@ -171,7 +176,7 @@ func (s *consoleSession) runPlain() error {
 		}
 		done, err := s.handleLine(line)
 		if err != nil {
-			fmt.Fprintln(s.out, err)
+			s.ui.Err("%v", err)
 		}
 		if done {
 			return nil
@@ -226,7 +231,7 @@ func (s *consoleSession) runLiner() error {
 		done, herr := s.handleLine(line)
 		s.refreshPrompt()
 		if herr != nil {
-			fmt.Fprintln(s.out, herr)
+			s.ui.Err("%v", herr)
 		}
 		if done {
 			break
@@ -278,6 +283,16 @@ func (s *consoleSession) handleLine(line string) (bool, error) {
 	command := strings.ToLower(fields[0])
 	args := fields[1:]
 
+	// Shell passthrough: "!<command>" runs a system command and returns to
+	// the console. This is the Metasploit/bettercap escape hatch so the
+	// operator is never isolated from the host.
+	if strings.HasPrefix(line, "!") {
+		if len(line) == 1 {
+			return false, errors.New("usage: !<command> — run a system command, e.g. !ls -la")
+		}
+		return false, s.runShell(strings.TrimSpace(line[1:]))
+	}
+
 	switch command {
 	case "help", "?":
 		s.printHelp()
@@ -293,6 +308,18 @@ func (s *consoleSession) handleLine(line string) (bool, error) {
 		fmt.Fprintf(s.out, "\x1b[2J\x1b[H")
 	case "exit", "quit":
 		return true, nil
+	case "shell":
+		if isInteractiveShell(line) {
+			return false, s.runInteractiveShell()
+		}
+		return false, s.runShell(strings.Join(args, " "))
+	case "cd":
+		if err := s.changeDir(strings.Join(args, " ")); err != nil {
+			return false, err
+		}
+		s.ui.Status(">", "cwd: %s", s.cwd)
+	case "pwd":
+		fmt.Fprintln(s.out, s.cwd)
 	case "set":
 		return false, s.handleSet(args)
 	case "unset":
@@ -429,6 +456,13 @@ func (s *consoleSession) printHelp() {
 		{"unset <opt>", "Restore an option's default value"},
 		{"options", "Show the current option values"},
 	})
+	u.Section("Shell Commands")
+	u.Table([]string{"Command", "Description"}, [][]string{
+		{"!<command>", "Run a system command (e.g. !ls -la)"},
+		{"shell [command]", "Drop into an interactive shell, or run one command"},
+		{"cd <dir>", "Change the console working directory"},
+		{"pwd", "Print the console working directory"},
+	})
 	u.Rule()
 }
 
@@ -502,8 +536,9 @@ func (s *consoleSession) search(query string) {
 	}
 }
 
-// complete provides tab completion for commands, options and module names.
-// It returns candidate tokens for the last word on the line.
+// complete provides tab completion for commands, options, module names and
+// (for cd) directories in the console working directory. It returns candidate
+// tokens for the last word on the line.
 func (s *consoleSession) complete(line string) []string {
 	fields := strings.Fields(line)
 	if len(fields) == 0 {
@@ -535,8 +570,51 @@ func (s *consoleSession) complete(line string) []string {
 			}
 		}
 		return out
+	case strings.EqualFold(fields[0], "cd"):
+		return s.completeDir(prefix)
 	}
 	return []string{}
+}
+
+// completeDir completes a directory path under the console working directory,
+// appending a trailing "/" to directory entries so navigation is obvious.
+func (s *consoleSession) completeDir(prefix string) []string {
+	base := s.cwd
+	dirPart := "."
+	if prefix != "" {
+		if filepath.IsAbs(prefix) {
+			base = "/"
+			dirPart = filepath.Dir(prefix)
+		} else {
+			dirPart = filepath.Dir(prefix)
+			if dirPart == "." {
+				dirPart = "."
+			} else {
+				base = filepath.Join(s.cwd, dirPart)
+			}
+		}
+	}
+	entries, err := os.ReadDir(base)
+	if err != nil {
+		return []string{}
+	}
+	namePart := filepath.Base(prefix)
+	var out []string
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasPrefix(name, namePart) {
+			continue
+		}
+		cand := name
+		if dirPart != "." && dirPart != "/" {
+			cand = filepath.Join(dirPart, name)
+		}
+		if e.IsDir() {
+			cand += "/"
+		}
+		out = append(out, cand)
+	}
+	return out
 }
 
 // autoComplete adapts the token completer to the readline interface: it
@@ -590,7 +668,7 @@ func applyOption(name, value string) error {
 	case "OUTPUT_FILE":
 		flagOutputFile = value
 	case "TIMEOUT":
-		i, err := parseInt(value)
+		i, err := parseIntRange("TIMEOUT", value, 1, 3600)
 		if err != nil {
 			return err
 		}
@@ -600,7 +678,7 @@ func applyOption(name, value string) error {
 	case "WORDLIST":
 		flagWordlist = value
 	case "THREADS":
-		i, err := parseInt(value)
+		i, err := parseIntRange("THREADS", value, 1, 100000)
 		if err != nil {
 			return err
 		}
@@ -624,12 +702,15 @@ func applyOption(name, value string) error {
 		}
 		flagMutate = b
 	case "DELAY":
-		i, err := parseInt(value)
+		i, err := parseIntRange("DELAY", value, 0, 60000)
 		if err != nil {
 			return err
 		}
 		flagDelay = i
 	case "PORTS":
+		if err := validatePorts(value); err != nil {
+			return err
+		}
 		flagPorts = parseList(value)
 	case "STEALTH":
 		b, err := parseBool(value)
@@ -641,6 +722,35 @@ func applyOption(name, value string) error {
 		// session-managed; nothing to apply
 	default:
 		return fmt.Errorf("unknown option %q (see options)", name)
+	}
+	return nil
+}
+
+// parseIntRange parses an integer option and enforces [min, max] so nonsense
+// values (negative timeouts, zero threads) cannot silently corrupt a scan.
+func parseIntRange(name, value string, min, max int) (int, error) {
+	i, err := parseInt(value)
+	if err != nil {
+		return 0, err
+	}
+	if i < min || i > max {
+		return 0, fmt.Errorf("%s: value %d out of range [%d, %d]", name, i, min, max)
+	}
+	return i, nil
+}
+
+// validatePorts rejects non-numeric or out-of-range port tokens so a typo
+// like "80,4x3" fails at the prompt instead of mid-scan.
+func validatePorts(value string) error {
+	for _, p := range strings.Split(value, ",") {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		n, err := strconv.Atoi(p)
+		if err != nil || n < 1 || n > 65535 {
+			return fmt.Errorf("PORTS: invalid port %q (use 1-65535)", p)
+		}
 	}
 	return nil
 }
