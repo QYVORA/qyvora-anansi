@@ -1,6 +1,0 @@
-strict-transport-security|Missing HSTS|HIGH|Absence of HSTS exposes users to SSL stripping attacks.|Add: Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
-content-security-policy|Missing Content-Security-Policy|MEDIUM|No CSP defined — XSS and data injection attacks not mitigated.|Define a Content-Security-Policy header appropriate for your application.
-x-frame-options|Missing X-Frame-Options|MEDIUM|Page can be embedded in iframes — clickjacking risk.|Add: X-Frame-Options: DENY
-x-content-type-options|Missing X-Content-Type-Options|LOW|Browser MIME sniffing may enable content injection.|Add: X-Frame-Options: nosniff
-referrer-policy|Missing Referrer-Policy|LOW|Sensitive URL data may leak via the Referer header.|Add: Referrer-Policy: strict-origin-when-cross-origin
-permissions-policy|Missing Permissions-Policy|LOW|Browser APIs (camera, mic, geolocation) are unrestricted.|Add a Permissions-Policy header to restrict unnecessary APIs.
