@@ -44,6 +44,11 @@ func New(timeoutSec int, maxRedirects int) *http.Client {
 			}
 			return nil
 		}
+	} else {
+		// A negative maxRedirects disables redirect following entirely.
+		client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
 	}
 	return client
 }
