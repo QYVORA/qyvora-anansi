@@ -64,7 +64,7 @@ banner() {
     echo -e "                ;                 ;             ${NC}"
     echo -e ""
     echo -e "  ${WHITE}ANANSI CLI — Zero-Config Installer${NC}"
-    echo -e "  ${CYAN}QYVORA OffSec — Accra, Ghana${NC}"
+    echo -e "  ${CYAN}QYVORA OffSec — Tamale, Ghana${NC}"
     echo -e "  ${DIM}----------------------------------------${NC}"
     echo -e ""
 }

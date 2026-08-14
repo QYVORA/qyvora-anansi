@@ -30,6 +30,9 @@ jobs:
           - goos: windows
             goarch: amd64
             name: anansi-windows-amd64.exe
+          - goos: windows
+            goarch: arm64
+            name: anansi-windows-arm64.exe
 
     steps:
       - uses: actions/checkout@v6
