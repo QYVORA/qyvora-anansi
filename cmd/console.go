@@ -248,20 +248,26 @@ func (s *consoleSession) refreshPrompt() {
 	}
 }
 
-// historyPath returns the location of the console history file.
+// historyPath returns the location of the console history file. It lives in
+// ~/.qyvora so all QYVORA frameworks share one namespace; the parent
+// directory is created on demand.
 func (s *consoleSession) historyPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".anansi_history"), nil
+	dir := filepath.Join(home, ".qyvora")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "anansi_history"), nil
 }
 
 // prompt renders the Metasploit-style prompt.  In a terminal it is colored
 // green (the ANANSI accent) and shows the selected module context, e.g.
-// "anansi[paths] > ".
+// "anansiλ[paths] > ".
 func (s *consoleSession) prompt() string {
-	p := "anansi"
+	p := "anansiλ"
 	if s.module != "" {
 		p += "[" + s.module + "]"
 	}

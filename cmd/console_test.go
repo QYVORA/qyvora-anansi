@@ -297,14 +297,14 @@ func TestConsoleHistory(t *testing.T) {
 
 func TestConsolePrompt(t *testing.T) {
 	s, _ := newTestSession()
-	if got := s.prompt(); got != "anansi > " {
-		t.Errorf("prompt = %q, want %q", got, "anansi > ")
+	if got := s.prompt(); got != "anansiλ > " {
+		t.Errorf("prompt = %q, want %q", got, "anansiλ > ")
 	}
 	if _, err := s.handleLine("use probe"); err != nil {
 		t.Fatalf("use probe: %v", err)
 	}
-	if got := s.prompt(); got != "anansi[probe] > " {
-		t.Errorf("module prompt = %q, want %q", got, "anansi[probe] > ")
+	if got := s.prompt(); got != "anansiλ[probe] > " {
+		t.Errorf("module prompt = %q, want %q", got, "anansiλ[probe] > ")
 	}
 }
 
