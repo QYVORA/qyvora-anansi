@@ -5,7 +5,7 @@
 ### Added (interactive console milestone)
 - Running `anansi` with no arguments now enters an interactive
   Metasploit-style console with its own `anansi >` prompt (module context is
-  shown as `anansi[paths] >`); all existing one-line commands keep working
+  shown as `anansiλ[paths] >`); all existing one-line commands keep working
 - A startup banner and help hint are printed when the console runs on a real
   terminal; piped sessions stay quiet so scripts get clean output
 - CLI flags passed without a target (e.g. `anansi --deep --threads 250`) are
@@ -36,7 +36,7 @@
 - Console chrome upgraded to match the scan experience: green spider banner
   with version footer, a live status strip (`▮ rhosts ... module ... · v dev`)
   above every prompt, sectioned help tables, colored status glyphs, and a
-  bold-green prompt that carries the module context (`anansi[paths] >`)
+  bold-green prompt that carries the module context (`anansiλ[paths] >`)
 - Piped input is supported, so console sessions can be scripted
 - Ctrl+C during a console scan prints partial results and returns to the
   prompt instead of killing the process
@@ -47,9 +47,9 @@
 ### Added (exploit-chain milestone)
 - New `chain` module (Phase 09): assembles findings into multi-step exploit
   paths ranked from low-severity foothold to full compromise
-- 30 vulnerability classes (`wordlists/chain/classes.txt`), each with keywords
+- 30 vulnerability classes (`internal/assets/wordlists/chain/classes.txt`), each with keywords
   matched against finding titles and a recommended exploitation technique
-- 18 curated kill-path templates (`wordlists/chain/chains.txt`): Full
+- 18 curated kill-path templates (`internal/assets/wordlists/chain/chains.txt`): Full
   Compromise, RCE via Exposed Admin, WebShell Upload, SSRF Pivot, SQLi to Full
   Access, XSS to Account Takeover, Subdomain Hijack, and more
 - Generic escalation path fallback: any host with 2+ distinct classes gets a

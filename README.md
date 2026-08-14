@@ -60,7 +60,7 @@
 <span style="color: #66B870;">anansi</span> scan target.com
 <span style="color: #66B870;">anansi</span> target.com <span style="color: #60a5fa;">--verbose</span>
 <span style="color: #66B870;">anansi</span> target.com <span style="color: #60a5fa;">--deep</span>
-<span style="color: #66B870;">anansi</span> target.com <span style="color: #60a5fa;">--out</span> json &gt; results.json
+<span style="color: #66B870;">anansi</span> target.com <span style="color: #60a5fa;">-o</span> json &gt; results.json
 <span style="color: #66B870;">anansi</span> target.com <span style="color: #60a5fa;">--modules</span> discovery,tls,takeover
   </pre>
 
@@ -112,9 +112,9 @@ When a host is fingerprinted as **WordPress, Drupal, Joomla, Magento, Ghost, Moo
 - **Version detection** — generator meta tags, `/wp-links-opml.php`, `/feed/`, `/CHANGELOG.txt`, `joomla.xml`, `/magento_version`, MediaWiki `/api.php` siteinfo, Moodle `/login/index.php`, and static-asset `?ver=` strings.
 - **WordPress plugin/theme enumeration** — plugins are discovered from the homepage body and their stable versions read from `readme.txt`; Drupal modules, Joomla components, and MediaWiki extensions are enumerated the same way.
 - **Stack-specific probes** — `/xmlrpc.php`, `/?author=1` and REST user enumeration, `debug.log`, config backups (`wp-config.php.bak`, `settings.php.bak`, `configuration.php.bak`), Magento `app/etc/env.php`, Ghost admin API, Laravel Telescope/Horizon/Ignition RCE (CVE-2021-3129), MediaWiki `LocalSettings.php`, directory listings, login/admin panels.
-- **Known-vulnerable version matching** — detected versions are matched against a curated, CVE-backed table (`wordlists/tech/vulns.txt`) covering WordPress core, Drupal (Drupalgeddon), Joomla, Magento, Ghost, MediaWiki, Moodle, and high-value WordPress plugins such as Elementor, WP File Manager, Duplicator, Contact Form 7, Revolution Slider, and WooCommerce.
+- **Known-vulnerable version matching** — detected versions are matched against a curated, CVE-backed table (`internal/assets/wordlists/tech/vulns.txt`) covering WordPress core, Drupal (Drupalgeddon), Joomla, Magento, Ghost, MediaWiki, Moodle, and high-value WordPress plugins such as Elementor, WP File Manager, Duplicator, Contact Form 7, Revolution Slider, and WooCommerce.
 
-Add your own fingerprints, path rules, and version ranges by editing the files under `wordlists/tech/`.
+Add your own fingerprints, path rules, and version ranges by editing the files under `internal/assets/wordlists/tech/`.
 
 ## Exploit Chain Analysis
 
@@ -125,11 +125,11 @@ low-severity foothold to full compromise:
 - **30 vulnerability classes** — RCE, SQL injection, XSS, SSRF, path traversal,
   auth bypass, privilege escalation, default credentials, exposed admin
   interfaces, deserialization, file upload, subdomain takeover, and more —
-  each with a recommended exploitation technique (`wordlists/chain/classes.txt`).
+  each with a recommended exploitation technique (`internal/assets/wordlists/chain/classes.txt`).
 - **Kill-path templates** — curated narratives such as *Full Compromise*
   (Info Disclosure → Credentials → Auth Bypass → Privilege Escalation → RCE),
   *WebShell Upload*, *SSRF Pivot*, and *Data Exfiltration*
-  (`wordlists/chain/chains.txt`).
+  (`internal/assets/wordlists/chain/chains.txt`).
 - **Generic escalation** — any host with two or more distinct classes gets a
   ranked path ordered from the least to the most severe finding.
 - **Ranked output** — chains are scored and sorted by severity, length, and
@@ -276,14 +276,14 @@ anansi target.com --timeout 10
 anansi target.com --threads 100
 
 # JSON output
-anansi target.com --out json > results.json
-anansi target.com --out json | jq '.Findings[] | select(.Severity == "CRITICAL")'
+anansi target.com -o json > results.json
+anansi target.com -o json | jq '.Findings[] | select(.Severity == "CRITICAL")'
 
 # Markdown output
-anansi target.com --out markdown > recon.md
+anansi target.com -o markdown > recon.md
 
 # HTML output — premium dark mode report
-anansi target.com --out html > report.html
+anansi target.com -o html > report.html
 ```
 
 All one-line commands above keep working exactly as documented. Running `anansi`
@@ -303,24 +303,24 @@ $ anansi
   type 'help' for the command list, 'options' to view scan options.
 
 ▮ rhosts none  ·  module none                      v dev
-anansi > set RHOSTS target.com
+anansiλ > set RHOSTS target.com
   [*] RHOSTS => target.com
 ▮ rhosts target.com  ·  module none                v dev
-anansi > set THREADS 200
+anansiλ > set THREADS 200
   [*] THREADS => 200
 anansi > run
 ...
-anansi > use paths
+anansiλ > use paths
   [*] Using module paths
 ▮ rhosts target.com  ·  module paths               v dev
-anansi[paths] > info
-anansi[paths] > back
+anansiλ[paths] > info
+anansiλ[paths] > back
   [-] Module deselected.
-anansi > exit
+anansiλ > exit
 ```
 
 A live status strip above the prompt tracks the current `RHOSTS` and module
-context, and the prompt carries the selected module (`anansi[paths] >`).
+context, and the prompt carries the selected module (`anansiλ[paths] >`).
 
 CLI flags passed without a target are inherited by the console as initial
 options, so `anansi --deep --threads 250` starts the REPL with those values
@@ -362,7 +362,7 @@ Console commands:
 | `--ports` | `-p` | 80,443 | Alternative ports to probe (comma-separated list) |
 | `--delay` | | 0 | Delay between requests in milliseconds for rate limiting |
 | `--deep` | | false | Larger subdomain wordlist + more path probing rules |
-| `--out` | | terminal | Output format: `terminal` \| `json` \| `markdown` \| `html` |
+| `-o, --output` | `-o` | terminal | Output format: `terminal` \| `json` \| `markdown` \| `html` |
 | `--timeout` | | 5 | Per-request timeout in seconds |
 | `--threads` | `-t` | 100 | Number of concurrent threads to use for scanning |
 | `--stealth` | | false | Enable stealth mode: random User-Agent, jitter, skip crt.sh, reduce noise |
