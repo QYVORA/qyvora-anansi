@@ -36,6 +36,12 @@ const BuiltIn = "Tamale, Ghana"
 // Finding represents a single vulnerability or notable observation discovered
 // during any scan phase. Each finding carries a severity, a human-readable
 // title, the affected asset, evidence, and a remediation suggestion.
+//
+// ID is a stable per-scan identifier (assigned after deduplication) that the
+// PoC/exploitation layer uses to correlate findings with exploit results.
+// Status tracks the finding through the shared QYVORA lifecycle when it is
+// selected for validation/exploitation (suspected -> validated -> exploitable
+// -> exploited -> evidence_captured), and is empty when it was never selected.
 type Finding struct {
 	Severity      string
 	Title         string
@@ -43,6 +49,8 @@ type Finding struct {
 	Description   string
 	Evidence      string
 	Remediation   string
+	ID            string
+	Status        string
 }
 
 // OSINTResult holds a single piece of open-source intelligence discovered
@@ -82,20 +90,43 @@ type ExploitChain struct {
 	Steps    []ChainStep
 }
 
+// ExploitResult is the machine-readable outcome of one PoC/exploitation run
+// against one finding. It intentionally mirrors the exploit package's Result
+// shape without importing it, keeping the output package free of package
+// cycles. Evidence is stored as a list of non-sensitive summaries.
+type ExploitResult struct {
+	ExploitID     string
+	ModuleID      string
+	ModuleName    string
+	Target        string
+	FindingID     string
+	FindingTitle  string
+	Vulnerability string
+	Status        string
+	Risk          string
+	DryRun        bool
+	StartedAt     time.Time
+	CompletedAt   time.Time
+	Evidence      []string
+	Error         string
+	CleanupStatus string
+}
+
 // Report is the full scan result object. It is populated incrementally by each
 // scan phase and rendered at the end in the chosen output format.
 type Report struct {
-	Target        string
-	StartedAt     time.Time
-	Duration      time.Duration
-	Subdomains    []SubdomainResult
-	ProbeResults  []ProbeResult
-	TLSResults    []TLSResult
-	HeaderResults []HeaderResult
-	Findings      []Finding
-	OSINTResults  []OSINTResult
-	TechResults   []TechResult
-	Chains        []ExploitChain
+	Target         string
+	StartedAt      time.Time
+	Duration       time.Duration
+	Subdomains     []SubdomainResult
+	ProbeResults   []ProbeResult
+	TLSResults     []TLSResult
+	HeaderResults  []HeaderResult
+	Findings       []Finding
+	OSINTResults   []OSINTResult
+	TechResults    []TechResult
+	Chains         []ExploitChain
+	ExploitResults []ExploitResult
 }
 
 // SubdomainResult holds the outcome of a single subdomain resolution attempt.

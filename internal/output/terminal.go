@@ -382,6 +382,9 @@ func (r *Renderer) printFinding(f Finding) {
 	default:
 		dim.Printf("  %s %s — %s\n", prefix, f.Title, f.AffectedAsset)
 	}
+	if f.Status != "" {
+		dim.Printf("       lifecycle: %s\n", f.Status)
+	}
 	if f.Remediation != "" {
 		dim.Printf("       fix: %s\n", f.Remediation)
 	}
@@ -456,6 +459,56 @@ func chainSeverityColor(sev string) string {
 		return color.New(color.FgYellow).Sprint(sev)
 	}
 	return dim.Sprint(sev)
+}
+
+// ExploitResultsBlock renders the outcome of the PoC/exploitation layer for
+// one phase. Each result is shown with its lifecycle state, module, target
+// and evidence summary.
+func (r *Renderer) ExploitResultsBlock(results []ExploitResult) {
+	if r.isQuiet() {
+		return
+	}
+	if len(results) == 0 {
+		dim.Println("  [*] no exploit results")
+		return
+	}
+	for _, res := range results {
+		status := exploitStatusColor(res.Status)
+		marker := "[*]"
+		switch res.Status {
+		case "exploited", "evidence_captured":
+			marker = "[!]"
+		case "exploit_failed", "validation_failed", "safety_blocked", "authorization_required":
+			marker = "[-]"
+		}
+		white.Printf("  %s %s — %s\n", marker, status, res.FindingTitle)
+		dim.Printf("       module: %s (%s)\n", res.ModuleID, res.Risk)
+		dim.Printf("       target: %s\n", res.Target)
+		for _, ev := range res.Evidence {
+			accentDim.Printf("       evidence: %s\n", ev)
+		}
+		if res.Error != "" {
+			redDim.Printf("       error: %s\n", res.Error)
+		}
+	}
+	fmt.Println()
+}
+
+// exploitStatusColor renders an exploitation lifecycle state with a colour.
+func exploitStatusColor(status string) string {
+	switch status {
+	case "exploited", "evidence_captured":
+		return green.Sprint(status)
+	case "exploitable":
+		return accent.Sprint(status)
+	case "exploit_failed", "validation_failed", "safety_blocked":
+		return red.Sprint(status)
+	case "authorization_required":
+		return orange.Sprint(status)
+	case "dry_run", "validated":
+		return accentDim.Sprint(status)
+	}
+	return dim.Sprint(status)
 }
 
 func (r *Renderer) OSINTTable(results []OSINTResult) {
@@ -588,6 +641,18 @@ func (r *Renderer) Summary(report *Report) {
 			len(report.Chains), top.Name, chainSeverityColor(top.Severity))
 	} else {
 		dim.Println("  chains      0 exploit paths")
+	}
+
+	exploited := 0
+	for _, e := range report.ExploitResults {
+		if e.Status == "evidence_captured" || e.Status == "exploited" {
+			exploited++
+		}
+	}
+	if len(report.ExploitResults) > 0 {
+		fmt.Printf("  exploit     %d runs, %d proven\n", len(report.ExploitResults), exploited)
+	} else {
+		dim.Println("  exploit     0 PoC runs (enable the exploit module)")
 	}
 
 	if counts[Critical]+counts[High] > 0 {
@@ -1117,6 +1182,29 @@ const htmlReportTemplate = `<!DOCTYPE html>
                     <p style="color: var(--text-dim);">No exploit chains assembled.</p>
                 {{end}}
             </div>
+
+            <!-- Exploit Results -->
+            <div class="card">
+                <h2>Exploit Results ({{len .Report.ExploitResults}})</h2>
+                {{if .Report.ExploitResults}}
+                    {{range .Report.ExploitResults}}
+                        <div class="finding-item {{if eq .Status "evidence_captured"}}high{{else if eq .Status "exploit_failed"}}high{{else if eq .Status "authorization_required"}}low{{else}}info{{end}}">
+                            <div class="finding-hdr">
+                                <span class="finding-title">{{.FindingTitle}}</span>
+                                <span class="finding-badge {{if eq .Status "evidence_captured"}}high{{else if eq .Status "exploit_failed"}}high{{else if eq .Status "authorization_required"}}low{{else}}info{{end}}">{{.Status}}</span>
+                            </div>
+                            <div class="finding-asset mono">{{.ModuleID}} — {{.Target}}</div>
+                            {{if .Evidence}}
+                                <div class="finding-evidence">{{range $i, $e := .Evidence}}{{if $i}}
+{{end}}{{$e}}{{end}}</div>
+                            {{end}}
+                            {{if .Error}}<div style="font-size: 0.8rem; color: var(--text-dim); margin-top: 0.4rem;">{{.Error}}</div>{{end}}
+                        </div>
+                    {{end}}
+                {{else}}
+                    <p style="color: var(--text-dim);">No PoC/exploitation runs performed.</p>
+                {{end}}
+            </div>
         </div>
 
         <div class="sidebar">
@@ -1142,6 +1230,7 @@ const htmlReportTemplate = `<!DOCTYPE html>
                     <li style="display: flex; justify-content: space-between;"><span>Low</span> <span class="badge low">{{index .Counts "LOW"}}</span></li>
                     <li style="display: flex; justify-content: space-between;"><span>Info</span> <span class="badge info">{{index .Counts "INFO"}}</span></li>
                     <li style="display: flex; justify-content: space-between;"><span>Exploit Chains</span> <span class="badge info">{{len .Report.Chains}}</span></li>
+                    <li style="display: flex; justify-content: space-between;"><span>Exploit Runs</span> <span class="badge info">{{len .Report.ExploitResults}}</span></li>
                 </ul>
             </div>
         </div>
@@ -1349,5 +1438,21 @@ func (r *Renderer) renderMarkdown(report *Report) {
 			}
 			fmt.Println()
 		}
+	}
+
+	fmt.Println("## Exploit Results")
+	if len(report.ExploitResults) == 0 {
+		fmt.Println("No PoC/exploitation runs performed (enable the exploit module).")
+	} else {
+		fmt.Println("| Status | Module | Target | Finding | Evidence |")
+		fmt.Println("|--------|--------|--------|---------|----------|")
+		for _, e := range report.ExploitResults {
+			evidence := "—"
+			if len(e.Evidence) > 0 {
+				evidence = strings.Join(e.Evidence, "; ")
+			}
+			fmt.Printf("| %s | `%s` | `%s` | %s | %s |\n", e.Status, e.ModuleID, e.Target, e.FindingTitle, evidence)
+		}
+		fmt.Println()
 	}
 }
