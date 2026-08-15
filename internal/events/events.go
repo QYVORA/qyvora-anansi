@@ -28,6 +28,16 @@ const (
 	Error             = "error"
 	ReportGenerated   = "report.generated"
 	ScanInterrupted   = "scan.interrupted"
+
+	// Exploitation lifecycle events, emitted by the PoC/exploitation engine.
+	// The dotted names are part of the shared contract across all QYVORA
+	// frameworks so a stream consumer can key on exploit.* uniformly.
+	ExploitSelected  = "exploit.selected"
+	ExploitValidated = "exploit.validated"
+	ExploitStarted   = "exploit.started"
+	ExploitCompleted = "exploit.completed"
+	ExploitFailed    = "exploit.failed"
+	EvidenceCaptured = "evidence.captured"
 )
 
 // Levels classify how an event should be treated by a consumer.
