@@ -75,7 +75,7 @@
 
 ## What it does
 
-ANANSI CLI is a terminal-first attack surface recon tool for pentesters and bug bounty hunters. Give it a domain — it runs a full nine-phase intelligence pipeline and prints raw technical output you can act on immediately.
+ANANSI CLI is a terminal-first attack surface recon tool for pentesters and bug bounty hunters. Give it a domain — it runs a full ten-phase intelligence and exploitation pipeline and prints raw technical output you can act on immediately.
 
 By default, ANANSI filters out the noise and only displays **found** assets (e.g., live subdomains, active HTTP/HTTPS hosts, successful TLS certificates, missing security headers on live URLs, exposed paths, and confirmed takeovers). This keeps your terminal clean. If you want to see all attempted checks, including dead subdomains, failed connections, and unchecked endpoints, simply enable the **verbose** flag (`-v`/`--verbose`).
 
@@ -90,6 +90,7 @@ By default, ANANSI filters out the noise and only displays **found** assets (e.g
 | 07 | **TAKEOVER** | Dangling CNAMEs pointing to unclaimed cloud services |
 | 08 | **OSINT** | Emails, phone numbers, employees, WHOIS registrant data |
 | 09 | **CHAIN** | Assembles findings into multi-step exploit paths (low → high → critical) with per-step exploitation techniques |
+| 10 | **EXPLOIT** | Actively proves exploitable findings against the authorized target with live HTTP request/response evidence |
 
 ---
 
@@ -138,6 +139,49 @@ low-severity foothold to full compromise:
 
 ```bash
 anansi target.com --modules discovery,probe,tls,headers,paths,tech,takeover,osint,chain
+```
+
+## Exploit Phase
+
+Phase 10 (**EXPLOIT**) is the framework-native PoC layer. It takes the
+findings produced by earlier phases and **actively proves** them against the
+authorized target with live HTTP requests, capturing request/response pairs
+as evidence:
+
+- **Six built-in modules** — `web/http-trace` (TRACE echo), `web/http-methods`
+  (unexpected method acceptance), `web/path-traversal` (documented traversal),
+  `web/open-redirect` (server-side redirect confirmation), `web/reflected-input`
+  (self-reflection in the response), and `web/directory-listing`
+  (auto-index disclosure). Module eligibility is derived from the finding's
+  vulnerability class, so each finding only ever matches its compatible
+  modules.
+- **Lifecycle and state machine** — each run moves through
+  `selected → validated → executing → exploited/exploit_failed` and then
+  `cleanup → evidence_captured`; `exploited`/`evidence_captured` are the
+  success terminal states. Unsupported findings resolve to `not-exploitable`
+  so nothing is silently dropped. States are back-propagated onto the
+  report's findings (`exploitable`, `exploited`, `exploit_failed`).
+- **Honest-by-default** — a finding is only `exploited` when the module's
+  check actually succeeded; `exploit_failed` is returned (not a silent skip)
+  when the check could not be confirmed.
+- **Safety gates** — no process spawning, no payload delivery; every module
+  is a self-terminating HTTP request to the authorized target. High-risk
+  modules are disabled unless `--authorized` is given. `--dry-run` runs the
+  full lifecycle up to the execution boundary and reports what *would* run.
+- **Events** — exploit lifecycle events (`exploit.selected`, `exploit.started`,
+  `exploit.completed`, `exploit.failed`, `exploit.validated`,
+  `exploit.cleanup`, `exploit.dry-run`, `exploit.skipped`) and
+  `evidence.captured` are emitted on the shared JSONL stream with the same
+  schema as every QYVORA framework.
+- **CLI** — `anansi exploit <url> --module web/path-traversal --authorized`
+  runs a single module; the full exploit phase also runs at the end of a
+  complete scan, and the console offers an `exploit` module context with
+  `use`, `validate`, `status`, `set`, and `AUTHORIZED` commands.
+
+```bash
+anansi target.com --authorized                    # full pipeline incl. EXPLOIT
+anansi exploit https://target.com/admin -m web/path-traversal --authorized
+anansi target.com --dry-run                       # plan the exploit phase
 ```
 
 ---
