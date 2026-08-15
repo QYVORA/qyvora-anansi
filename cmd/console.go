@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/QYVORA/qyvora-anansi-cli/internal/exploit"
 	"github.com/chzyer/readline"
 	"github.com/mattn/go-isatty"
 )
@@ -25,7 +26,7 @@ type consoleOption struct {
 // defaultModules is the canonical module set used both by the --modules flag
 // default and the console's MODULES option.
 var defaultModules = []string{
-	"discovery", "probe", "tls", "headers", "paths", "tech", "takeover", "osint", "chain",
+	"discovery", "probe", "tls", "headers", "paths", "tech", "takeover", "osint", "chain", "exploit",
 }
 
 // consoleOptions lists every option settable from the console prompt.
@@ -44,6 +45,7 @@ var consoleOptions = []consoleOption{
 	{name: "DELAY", def: "0", desc: "Delay between requests in ms for rate limiting"},
 	{name: "PORTS", def: "80,443", desc: "Ports to probe (comma-separated)"},
 	{name: "STEALTH", def: "false", desc: "Stealth mode: random UA, jitter, skip crt.sh, reduced concurrency"},
+	{name: "AUTHORIZED", def: "false", desc: "Confirm authorized testing so the exploit phase may execute proofs"},
 }
 
 // moduleDescriptions documents each scan phase for the console's use/info.
@@ -57,12 +59,13 @@ var moduleDescriptions = map[string]string{
 	"takeover":  "dangling CNAME subdomain takeover detection",
 	"osint":     "organisation recon — emails, phones, WHOIS, employees",
 	"chain":     "multi-step exploit path assembly from findings",
+	"exploit":   "controlled PoC validation and exploitation of findings",
 }
 
 // consoleCommands is the set of commands offered by the console prompt.
 var consoleCommands = []string{
 	"back", "banner", "cd", "clear", "exit", "help", "history", "info",
-	"options", "pwd", "quit", "run", "scan", "search", "set", "shell", "show", "unset", "use", "version",
+	"options", "pwd", "quit", "run", "scan", "search", "set", "shell", "show", "status", "unset", "use", "validate", "version",
 }
 
 // consoleSession is the state of a single interactive console run.  It owns
@@ -130,6 +133,7 @@ func snapshotConsoleOptions() map[string]string {
 		"DELAY":       strconv.Itoa(flagDelay),
 		"PORTS":       strings.Join(flagPorts, ","),
 		"STEALTH":     strconv.FormatBool(flagStealth),
+		"AUTHORIZED":  strconv.FormatBool(flagAuthorized),
 	}
 }
 
@@ -344,9 +348,14 @@ func (s *consoleSession) handleLine(line string) (bool, error) {
 		return false, s.handleUse(args)
 	case "back":
 		s.module = ""
+		flagExploitSel = ""
 		s.ui.Status("-", "Module deselected.")
 	case "search":
 		s.search(strings.Join(args, " "))
+	case "validate":
+		return false, s.handleValidate(args)
+	case "status":
+		return false, s.handleStatus()
 	case "scan", "run":
 		return s.runScan(args)
 	default:
@@ -394,10 +403,22 @@ func (s *consoleSession) handleUse(args []string) error {
 		return errors.New("usage: use <module>")
 	}
 	module := strings.ToLower(args[0])
+	// A targeted exploit module: `use exploit/<id>`.
+	if strings.HasPrefix(module, "exploit/") {
+		id := strings.TrimPrefix(module, "exploit/")
+		if _, ok := exploit.DefaultRegistry.Get(id); !ok {
+			return fmt.Errorf("unknown exploit module %q (see 'exploit list')", id)
+		}
+		s.module = module
+		flagExploitSel = id
+		s.ui.Status("*", "Using exploit module %s", id)
+		return nil
+	}
 	if _, ok := moduleDescriptions[module]; !ok {
 		return fmt.Errorf("unknown module %q (available: %s)", module, strings.Join(defaultModules, ", "))
 	}
 	s.module = module
+	flagExploitSel = ""
 	s.ui.Status("*", "Using module %s", module)
 	return nil
 }
@@ -421,16 +442,62 @@ func (s *consoleSession) runScan(args []string) (bool, error) {
 	return false, nil
 }
 
+// handleValidate runs the exploit phase in validation-only mode: the scan
+// executes with authorization assumed and proof execution suppressed, so
+// findings are classified as exploitable without any active PoC request.
+func (s *consoleSession) handleValidate(args []string) error {
+	target := ""
+	if len(args) > 0 {
+		target = strings.TrimSpace(args[0])
+	}
+	if target == "" {
+		target = strings.TrimSpace(s.values["RHOSTS"])
+	}
+	if target == "" {
+		return errors.New("target required: validate <target> or set RHOSTS <target>")
+	}
+	savedAuth, savedDry := flagAuthorized, flagExploitDry
+	flagAuthorized, flagExploitDry = true, true
+	defer func() { flagAuthorized, flagExploitDry = savedAuth, savedDry }()
+	return s.runTargetScan(target)
+}
+
+// handleStatus prints the console session state relevant to the PoC layer:
+// the selected module, authorization status and the validation mode.
+func (s *consoleSession) handleStatus() error {
+	module := s.module
+	if module == "" {
+		module = "(none)"
+	}
+	s.ui.Status(">", "module: %s", module)
+	s.ui.Status(">", "AUTHORIZED: %s", s.values["AUTHORIZED"])
+	s.ui.Status(">", "RHOSTS: %s", s.values["RHOSTS"])
+	if s.module == "exploit" || strings.HasPrefix(s.module, "exploit/") {
+		s.ui.Status(">", "exploit mode: %s", map[bool]string{true: "validation-only (dry run)", false: "active (requires AUTHORIZED)"}[flagExploitDry])
+		if flagExploitSel != "" {
+			s.ui.Status(">", "targeted module: %s", flagExploitSel)
+		}
+	}
+	return nil
+}
+
 func (s *consoleSession) runTargetScan(target string) error {
 	saved := flagModules
 	restore := false
 	if s.module != "" {
-		flagModules = []string{s.module}
+		if strings.HasPrefix(s.module, "exploit/") {
+			// A targeted exploit module runs the exploit phase restricted
+			// to that module; flagExploitSel is already set by `use`.
+			flagModules = []string{"exploit"}
+		} else {
+			flagModules = []string{s.module}
+		}
 		restore = true
 	}
 	defer func() {
 		if restore {
 			flagModules = saved
+			flagExploitSel = ""
 		}
 	}()
 	return runScanTarget([]string{target}, true)
@@ -449,7 +516,8 @@ func (s *consoleSession) printHelp() {
 	})
 	u.Section("Module Commands")
 	u.Table([]string{"Command", "Description"}, [][]string{
-		{"use <module>", "Select a scan module (e.g. use paths)"},
+		{"use <module>", "Select a scan module (e.g. use paths, use exploit)"},
+		{"use exploit/<id>", "Select a single PoC module (e.g. use exploit/web/reflected-input)"},
 		{"back", "Deselect the current module"},
 		{"info", "Show module or option information"},
 		{"search <text>", "Search modules and options"},
@@ -458,7 +526,9 @@ func (s *consoleSession) printHelp() {
 	u.Table([]string{"Command", "Description"}, [][]string{
 		{"scan <target>", "Run a full scan against <target>"},
 		{"run [target]", "Run a scan; falls back to RHOSTS, honors the selected module"},
-		{"set <opt> <v>", "Set a scan option (e.g. set THREADS 200)"},
+		{"validate [target]", "Run the exploit phase in validation-only mode (no active proof requests)"},
+		{"status", "Show module, authorization and exploit-mode state"},
+		{"set <opt> <v>", "Set a scan option (e.g. set THREADS 200, set AUTHORIZED true)"},
 		{"unset <opt>", "Restore an option's default value"},
 		{"options", "Show the current option values"},
 	})
@@ -537,6 +607,14 @@ func (s *consoleSession) search(query string) {
 			found = true
 		}
 	}
+	for _, m := range exploit.DefaultRegistry.All() {
+		meta := m.Meta()
+		hay := strings.ToLower(meta.ID + " " + meta.Name + " " + meta.Description)
+		if strings.Contains(hay, query) {
+			fmt.Fprintf(s.out, "  %s %-12s %s\n", s.ui.paint(cpDim, "[exploit]"), s.ui.paint(cpWhite, meta.ID), meta.Description)
+			found = true
+		}
+	}
 	if !found {
 		s.ui.Status("!", "No matches for %q.", query)
 	}
@@ -573,6 +651,13 @@ func (s *consoleSession) complete(line string) []string {
 		for _, m := range defaultModules {
 			if strings.HasPrefix(m, prefix) {
 				out = append(out, m)
+			}
+		}
+		if prefix == "" || strings.HasPrefix(prefix, "exploit") {
+			for _, id := range exploit.DefaultRegistry.IDs() {
+				if strings.HasPrefix("exploit/"+id, prefix) {
+					out = append(out, "exploit/"+id)
+				}
 			}
 		}
 		return out
@@ -724,6 +809,12 @@ func applyOption(name, value string) error {
 			return err
 		}
 		flagStealth = b
+	case "AUTHORIZED":
+		b, err := parseBool(value)
+		if err != nil {
+			return err
+		}
+		flagAuthorized = b
 	case "RHOSTS":
 		// session-managed; nothing to apply
 	default:

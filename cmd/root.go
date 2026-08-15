@@ -42,6 +42,9 @@ var (
 	flagDelay      int
 	flagPorts      []string
 	flagStealth    bool
+	flagAuthorized bool
+	flagExploitDry bool
+	flagExploitSel string
 )
 
 // Version is stamped at build time via:
@@ -146,12 +149,15 @@ func init() {
 	rootCmd.PersistentFlags().IntVar(&flagDelay, "delay", 0, "Delay between requests in ms for rate limiting")
 	rootCmd.PersistentFlags().StringSliceVarP(&flagPorts, "ports", "p", []string{"80", "443"}, "Ports to probe (comma-separated)")
 	rootCmd.PersistentFlags().BoolVar(&flagStealth, "stealth", false, "Enable stealth mode: random UA, jitter, skip crt.sh, reduced concurrency")
+	rootCmd.PersistentFlags().BoolVar(&flagAuthorized, "authorized", false, "Confirm authorized testing before active PoC/exploitation runs (required for exploit module execution)")
+	rootCmd.PersistentFlags().BoolVar(&flagExploitDry, "exploit-dry-run", false, "Run the exploit phase in validation-only mode: no proof requests are executed")
 	rootCmd.PersistentFlags().StringVar(&flagOutputFile, "output-file", "", "Write output to file instead of stdout")
 	rootCmd.PersistentFlags().StringVar(&flagEvents, "events", "", "Emit JSONL event stream to stdout, stderr, or a file path (e.g. --events scan.jsonl)")
 	rootCmd.Flags().Bool("version", false, "Print version information and exit")
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(scanCmd)
 	rootCmd.AddCommand(newCompletionCmd())
+	rootCmd.AddCommand(newExploitCmd())
 }
 
 // newCompletionCmd emits a shell completion script for bash/zsh/fish/powershell,
@@ -189,10 +195,12 @@ func hasModule(name string) bool {
 	return false
 }
 
-// dedupeFindings removes duplicate findings by title + affected asset.  The
+// dedupeFindings removes duplicate findings by title + affected asset and
+// assigns each surviving finding a stable per-scan identifier (F-<n>). The
 // paths and tech modules intentionally probe overlapping targets (e.g. /.env
 // and /.git/HEAD appear in both generic lists), so a final pass keeps the
-// report clean.
+// report clean. The function is idempotent: calling it again on its own
+// output re-assigns identical IDs because ordering and content are unchanged.
 func dedupeFindings(findings []output.Finding) []output.Finding {
 	seen := make(map[string]struct{}, len(findings))
 	out := make([]output.Finding, 0, len(findings))
@@ -202,6 +210,7 @@ func dedupeFindings(findings []output.Finding) []output.Finding {
 			continue
 		}
 		seen[key] = struct{}{}
+		f.ID = fmt.Sprintf("F-%04d", len(out)+1)
 		out = append(out, f)
 	}
 	return out
@@ -294,6 +303,7 @@ func runScanTarget(args []string, console bool) error {
 	findingsEmit := func(findings []output.Finding) {
 		for _, f := range findings {
 			emit(events.LevelInfo, events.FindingDiscovered, map[string]any{
+				"id":       f.ID,
 				"title":    f.Title,
 				"severity": f.Severity,
 				"asset":    f.AffectedAsset,
@@ -452,6 +462,20 @@ func runScanTarget(args []string, console bool) error {
 		done()
 	}
 
+	// -- PHASE 10: EXPLOIT / PoC ------------------------------------------
+	// The framework-native exploitation layer. Each finding with a matching
+	// PoC module is taken through validation -> exploitable -> (authorized)
+	// proof -> evidence. Without --authorized no active request is made and
+	// results carry the authorization_required state; with --exploit-dry-run
+	// validation runs but proof execution is skipped.
+	if hasModule("exploit") {
+		done := phaseEmit("exploit", "10", "EXPLOIT")
+		out.PhaseHeader("10", "EXPLOIT", "controlled PoC validation and exploitation of findings")
+		report.ExploitResults = runExploitPhase(out, report, emit)
+		out.ExploitResultsBlock(report.ExploitResults)
+		done()
+	}
+
 	// -- SUMMARY -----------------------------------------------------------
 	report.Duration = time.Since(startTime)
 	report.Findings = dedupeFindings(report.Findings)
@@ -482,6 +506,7 @@ func runScanTarget(args []string, console bool) error {
 		"subdomains":     len(report.Subdomains),
 		"hosts":          len(report.ProbeResults),
 		"chains":         len(report.Chains),
+		"exploit_runs":   len(report.ExploitResults),
 	})
 
 	return nil
