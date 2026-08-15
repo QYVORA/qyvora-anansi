@@ -607,3 +607,70 @@ func TestConsoleOptionBounds(t *testing.T) {
 		}
 	}
 }
+
+func TestConsoleUseExploitModule(t *testing.T) {
+	s, buf := newTestSession()
+	if _, err := s.handleLine("use exploit"); err != nil {
+		t.Fatalf("use exploit: %v", err)
+	}
+	if s.module != "exploit" {
+		t.Errorf("module = %q, want exploit", s.module)
+	}
+	if _, err := s.handleLine("use exploit/web/reflected-input"); err != nil {
+		t.Fatalf("use exploit/web/reflected-input: %v", err)
+	}
+	if flagExploitSel != "web/reflected-input" {
+		t.Errorf("flagExploitSel = %q, want web/reflected-input", flagExploitSel)
+	}
+	if _, err := s.handleLine("use exploit/web/does-not-exist"); err == nil {
+		t.Error("use of an unknown exploit module expected error")
+	}
+	buf.Reset()
+	if _, err := s.handleLine("back"); err != nil {
+		t.Fatalf("back: %v", err)
+	}
+	if flagExploitSel != "" {
+		t.Errorf("flagExploitSel after back = %q, want empty", flagExploitSel)
+	}
+}
+
+func TestConsoleStatusCommand(t *testing.T) {
+	s, buf := newTestSession()
+	if _, err := s.handleLine("set AUTHORIZED true"); err != nil {
+		t.Fatalf("set AUTHORIZED: %v", err)
+	}
+	buf.Reset()
+	if _, err := s.handleLine("status"); err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "AUTHORIZED: true") {
+		t.Errorf("status output missing AUTHORIZED: %q", out)
+	}
+	if !strings.Contains(out, "module:") {
+		t.Errorf("status output missing module: %q", out)
+	}
+}
+
+func TestConsoleValidateRequiresTarget(t *testing.T) {
+	s, _ := newTestSession()
+	if _, err := s.handleLine("validate"); err == nil {
+		t.Error("validate without target expected error")
+	}
+}
+
+func TestConsoleSetAuthorizedOption(t *testing.T) {
+	s, _ := newTestSession()
+	if _, err := s.handleLine("set AUTHORIZED true"); err != nil {
+		t.Fatalf("set AUTHORIZED: %v", err)
+	}
+	if !flagAuthorized {
+		t.Error("flagAuthorized not set by AUTHORIZED option")
+	}
+	if _, err := s.handleLine("unset AUTHORIZED"); err != nil {
+		t.Fatalf("unset AUTHORIZED: %v", err)
+	}
+	if flagAuthorized {
+		t.Error("flagAuthorized not reset by unset AUTHORIZED")
+	}
+}
