@@ -271,7 +271,7 @@ func (s *consoleSession) historyPath() (string, error) {
 // green (the ANANSI accent) and shows the selected module context, e.g.
 // "anansiλ[paths] > ".
 func (s *consoleSession) prompt() string {
-	p := "anansiλ"
+	p := "anansi"
 	if s.module != "" {
 		p += "[" + s.module + "]"
 	}
@@ -427,6 +427,9 @@ func (s *consoleSession) handleUse(args []string) error {
 // scan.  When a module context is active the scan is limited to that module.
 func (s *consoleSession) runScan(args []string) (bool, error) {
 	target := ""
+	if len(args) > 1 {
+		return false, errors.New("usage: scan <target> — extra arguments ignored, got " + strings.Join(args, " "))
+	}
 	if len(args) > 0 {
 		target = strings.TrimSpace(args[0])
 	}
@@ -447,6 +450,9 @@ func (s *consoleSession) runScan(args []string) (bool, error) {
 // findings are classified as exploitable without any active PoC request.
 func (s *consoleSession) handleValidate(args []string) error {
 	target := ""
+	if len(args) > 1 {
+		return errors.New("usage: validate <target> — extra arguments ignored, got " + strings.Join(args, " "))
+	}
 	if len(args) > 0 {
 		target = strings.TrimSpace(args[0])
 	}

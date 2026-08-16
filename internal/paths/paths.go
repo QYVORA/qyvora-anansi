@@ -97,7 +97,7 @@ func getBaseline(client *http.Client, baseURL string) baselineResponse {
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 5000))
 	return baselineResponse{
 		statusCode: resp.StatusCode,
 		bodyLen:    len(body),

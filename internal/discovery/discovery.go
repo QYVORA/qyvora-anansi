@@ -263,12 +263,12 @@ func Run(out *output.Renderer, target string, deep bool, timeout int, customWord
 
 	// -- Recursive brute-force ---------------------------------------------
 	if recursive {
-		runRecursive(results, wordlist, target, threads, timeout, delayMs, wildcardMap, stealth, out)
+		runRecursive(&results, wordlist, target, threads, timeout, delayMs, wildcardMap, stealth, out)
 	}
 
 	// -- Mutation brute-force ----------------------------------------------
 	if mutate {
-		runMutation(results, target, threads, timeout, delayMs, wildcardMap, stealth, out)
+		runMutation(&results, target, threads, timeout, delayMs, wildcardMap, stealth, out)
 	}
 
 	return results, nil
@@ -276,9 +276,9 @@ func Run(out *output.Renderer, target string, deep bool, timeout int, customWord
 
 // runRecursive resolves every wordlist prefix under each already-resolved
 // subdomain to discover deeper nested subdomains.
-func runRecursive(results []output.SubdomainResult, wordlist []string, target string, threads, timeout, delayMs int, wildcardMap map[string]struct{}, stealth bool, out *output.Renderer) {
+func runRecursive(results *[]output.SubdomainResult, wordlist []string, target string, threads, timeout, delayMs int, wildcardMap map[string]struct{}, stealth bool, out *output.Renderer) {
 	var resolvedSubs []string
-	for _, r := range results {
+	for _, r := range *results {
 		if r.Resolved && r.FQDN != target {
 			resolvedSubs = append(resolvedSubs, r.FQDN)
 		}
@@ -290,7 +290,7 @@ func runRecursive(results []output.SubdomainResult, wordlist []string, target st
 	out.Info(fmt.Sprintf("Running recursive brute-force on %d resolved subdomains...", len(resolvedSubs)))
 
 	seen := map[string]struct{}{}
-	for _, r := range results {
+	for _, r := range *results {
 		seen[r.FQDN] = struct{}{}
 	}
 
@@ -305,15 +305,15 @@ func runRecursive(results []output.SubdomainResult, wordlist []string, target st
 		}
 	}
 
-	resolveMany(recJobs, &results, threads, timeout, delayMs, wildcardMap, stealth, "Recursive resolving", out)
+	resolveMany(recJobs, results, threads, timeout, delayMs, wildcardMap, stealth, "Recursive resolving", out)
 }
 
 // runMutation applies prefix-level mutations (hyphenation, number
 // increments, cross-combination) to already-resolved subdomains and
 // resolves the resulting candidates.
-func runMutation(results []output.SubdomainResult, target string, threads, timeout, delayMs int, wildcardMap map[string]struct{}, stealth bool, out *output.Renderer) {
+func runMutation(results *[]output.SubdomainResult, target string, threads, timeout, delayMs int, wildcardMap map[string]struct{}, stealth bool, out *output.Renderer) {
 	var resolvedSubs []string
-	for _, r := range results {
+	for _, r := range *results {
 		if r.Resolved && r.FQDN != target {
 			resolvedSubs = append(resolvedSubs, r.FQDN)
 		}
@@ -327,7 +327,7 @@ func runMutation(results []output.SubdomainResult, target string, threads, timeo
 	out.Info(fmt.Sprintf("Running subdomain mutation brute-force on %d candidates...", len(mutatedCandidates)))
 
 	seen := map[string]struct{}{}
-	for _, r := range results {
+	for _, r := range *results {
 		seen[r.FQDN] = struct{}{}
 	}
 
@@ -339,7 +339,7 @@ func runMutation(results []output.SubdomainResult, target string, threads, timeo
 		}
 	}
 
-	resolveMany(mutJobs, &results, threads, timeout, delayMs, wildcardMap, stealth, "Mutation resolving", out)
+	resolveMany(mutJobs, results, threads, timeout, delayMs, wildcardMap, stealth, "Mutation resolving", out)
 }
 
 // MutateSubdomains generates target-specific subdomain mutations from
