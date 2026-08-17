@@ -8,6 +8,7 @@ import (
 
 	"github.com/QYVORA/qyvora-anansi-cli/internal/httpclient"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
+	"github.com/QYVORA/qyvora-anansi-cli/internal/validation"
 )
 
 func TestDetectStacks(t *testing.T) {
@@ -110,19 +111,6 @@ func TestCleanVer(t *testing.T) {
 	}
 	if got := cleanVer("abc123"); got != "" {
 		t.Errorf("cleanVer(abc123) should be empty, got %q", got)
-	}
-}
-
-func TestIsNegativeStatus(t *testing.T) {
-	for _, s := range []int{404, 400, 401, 403, 410, 301, 302, 303, 304, 308} {
-		if !isNegativeStatus(s) {
-			t.Errorf("status %d should be negative", s)
-		}
-	}
-	for _, s := range []int{200, 201, 405, 500, 502} {
-		if isNegativeStatus(s) {
-			t.Errorf("status %d should be positive", s)
-		}
 	}
 }
 
@@ -270,14 +258,16 @@ func TestCheckPathsBodyMatch(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := httpclient.NewNoRedirect(5)
+	ua := output.DefaultUA
+	validator := validation.NewValidator(httpclient.NewNoRedirect(5), ua)
+	baseline, _ := validator.GetBaseline(srv.URL)
 
 	rules := []pathRule{
 		{path: "/xmlrpc.php", title: "XML-RPC", severity: output.Medium, bodyMatch: "XML-RPC server accepts POST requests only"},
 		{path: "/missing.txt", title: "missing", severity: output.High},
 		{path: "/ok.txt", title: "ok", severity: output.Low},
 	}
-	fs := checkPaths(client, srv.URL, rules, 0, 0, false)
+	fs := checkPaths(validator, srv.URL, rules, baseline, false)
 	if len(fs) != 2 {
 		t.Fatalf("expected 2 findings (xmlrpc + ok), got %d: %+v", len(fs), fs)
 	}
@@ -294,9 +284,11 @@ func TestCheckPathsLocationMatch(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := httpclient.NewNoRedirect(5)
+	ua := output.DefaultUA
+	validator := validation.NewValidator(httpclient.NewNoRedirect(5), ua)
+	baseline, _ := validator.GetBaseline(srv.URL)
 	rules := []pathRule{{path: "/?author=1", title: "User Enum", severity: output.High, locationMatch: "/author/"}}
-	fs := checkPaths(client, srv.URL, rules, 0, 0, false)
+	fs := checkPaths(validator, srv.URL, rules, baseline, false)
 	if len(fs) != 1 {
 		t.Fatalf("expected user enumeration finding, got %d: %+v", len(fs), fs)
 	}
