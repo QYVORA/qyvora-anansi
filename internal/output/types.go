@@ -5,6 +5,8 @@ package output
 import (
 	"math/rand"
 	"time"
+
+	"github.com/QYVORA/qyvora-anansi-cli/internal/validation"
 )
 
 // Severity levels used to classify findings across all scan modules.
@@ -33,6 +35,19 @@ const CompanyURL = "https://qyvora.netlify.app"
 // BuiltIn is the origin location of this project.
 const BuiltIn = "Tamale, Ghana"
 
+// ValidationState is re-exported from the validation package for convenience.
+// It describes the confidence level of a finding based on response validation.
+type ValidationState = validation.ValidationState
+
+// Re-export validation state constants for use in output modules.
+const (
+	ValConfirmed   = validation.StateConfirmed
+	ValLikely      = validation.StateLikely
+	ValPossible    = validation.StatePossible
+	ValUnconfirmed = validation.StateUnconfirmed
+	ValRejected    = validation.StateRejected
+)
+
 // Finding represents a single vulnerability or notable observation discovered
 // during any scan phase. Each finding carries a severity, a human-readable
 // title, the affected asset, evidence, and a remediation suggestion.
@@ -42,6 +57,10 @@ const BuiltIn = "Tamale, Ghana"
 // Status tracks the finding through the shared QYVORA lifecycle when it is
 // selected for validation/exploitation (suspected -> validated -> exploitable
 // -> exploited -> evidence_captured), and is empty when it was never selected.
+//
+// ValidationState records the outcome of the response-validation pipeline:
+// DISCOVERY ≠ VALIDATED FINDING. A raw HTTP 200 is not sufficient to
+// confirm a resource exists.
 type Finding struct {
 	Severity      string
 	Title         string
@@ -51,6 +70,13 @@ type Finding struct {
 	Remediation   string
 	ID            string
 	Status        string
+
+	// Validation fields — the detection-quality pipeline
+	ValidationState ValidationState
+	FinalURL        string   // URL after redirects, if different from AffectedAsset
+	OriginalStatus  int      // HTTP status before redirect chain
+	FinalStatus     int      // HTTP status after redirect chain
+	RedirectChain   []string // Human-readable redirect hops
 }
 
 // OSINTResult holds a single piece of open-source intelligence discovered
