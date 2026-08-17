@@ -27,6 +27,7 @@ import (
 	"github.com/QYVORA/qyvora-anansi-cli/internal/assets"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/httpclient"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
+	"github.com/QYVORA/qyvora-anansi-cli/internal/validation"
 )
 
 // fingerprint maps a case-insensitive homepage-body needle to a stack name.
@@ -249,6 +250,14 @@ func auditHost(follow, noRedirect *http.Client, host output.ProbeResult, stealth
 		return nil
 	}
 
+	// Create a validator for proper soft-404 and baseline detection.
+	ua := output.DefaultUA
+	if stealth {
+		ua = output.RandomUA()
+	}
+	validator := validation.NewValidator(noRedirect, ua)
+	baseline, _ := validator.GetBaseline(base)
+
 	stacks := detectStacks(body)
 	var findings []output.Finding
 	var components []string
@@ -301,20 +310,20 @@ func auditHost(follow, noRedirect *http.Client, host output.ProbeResult, stealth
 		}
 
 		if rules, ok := stackRules[strings.ToLower(stack)]; ok {
-			findings = append(findings, checkPaths(noRedirect, base, rules, status, len(body), stealth)...)
+			findings = append(findings, checkPaths(validator, base, rules, baseline, stealth)...)
 		}
 	}
 
 	if primary == "" || len(stacks) == 0 {
 		// Even without a detected stack, run the generic probes; but only
 		// emit a result when they actually produced something.
-		generic := checkPaths(noRedirect, base, genericRules, status, len(body), stealth)
+		generic := checkPaths(validator, base, genericRules, baseline, stealth)
 		if len(generic) == 0 {
 			return nil
 		}
 		findings = append(findings, generic...)
 	} else {
-		findings = append(findings, checkPaths(noRedirect, base, genericRules, status, len(body), stealth)...)
+		findings = append(findings, checkPaths(validator, base, genericRules, baseline, stealth)...)
 	}
 
 	if len(findings) == 0 && version == "" && len(components) == 0 {
@@ -574,75 +583,51 @@ func discoverPlugins(client *http.Client, base, body string, stealth bool) []plu
 	return out
 }
 
-// checkPaths probes each rule against the host.  Rules with a bodyMatch are
-// only reported when the match appears; rules with a locationMatch are only
-// reported when a redirect Location matches; rules with neither are reported
-// on any non-obviously-negative status code.  A cheap soft-404 baseline is
-// applied using the homepage response: a path whose status and body length
-// match the homepage is treated as a catch-all (soft-404) and skipped.
-func checkPaths(client *http.Client, base string, rules []pathRule, homeStatus, homeLen int, stealth bool) []output.Finding {
+// checkPaths probes each rule against the host using the validation pipeline.
+// Rules with a bodyMatch are only reported when the match appears; rules with
+// a locationMatch are only reported when a redirect Location matches; rules
+// with neither are reported on any response that passes validation (not a
+// soft-404, not a SPA catch-all, not a redirect-to-root).
+func checkPaths(validator *validation.Validator, base string, rules []pathRule, baseline *validation.BaselineProfile, stealth bool) []output.Finding {
 	load()
 	var fs []output.Finding
 	for _, r := range rules {
 		target := base + r.path
-		req, err := http.NewRequestWithContext(context.Background(), "GET", target, nil)
-		if err != nil {
-			continue
-		}
-		if stealth {
-			req.Header.Set("User-Agent", output.RandomUA())
-		} else {
-			req.Header.Set("User-Agent", output.DefaultUA)
-		}
 
-		resp, err := client.Do(req)
+		resp, err := validator.Validate(target, baseline)
 		if err != nil {
 			continue
 		}
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 8192))
-		status := resp.StatusCode
-		loc := resp.Header.Get("Location")
-		_ = resp.Body.Close()
 
 		hit := false
 		switch {
 		case r.bodyMatch != "":
-			hit = strings.Contains(strings.ToLower(string(body)), strings.ToLower(r.bodyMatch))
+			hit = strings.Contains(strings.ToLower(string(resp.Body)), strings.ToLower(r.bodyMatch))
 		case r.locationMatch != "":
-			hit = status >= 300 && status < 400 && strings.Contains(strings.ToLower(loc), strings.ToLower(r.locationMatch))
+			hit = resp.IsRedirect && strings.Contains(strings.ToLower(resp.LocationHeader), strings.ToLower(r.locationMatch))
 		default:
-			hit = !isNegativeStatus(status)
+			// Use the validation pipeline instead of naive status checks.
+			// The validator handles soft-404s, SPA catch-alls, redirects,
+			// 401/403, and 5xx properly.
+			hit = validation.ShouldReportFinding(resp, r.severity == output.Critical || r.severity == output.High)
 		}
 		if !hit {
 			continue
 		}
 
-		// Soft-404 baseline: identical status + body length to the homepage
-		// means the server likely returned a catch-all page.
-		if r.bodyMatch == "" && r.locationMatch == "" && homeStatus > 0 && status == homeStatus && len(body) == homeLen {
-			continue
-		}
-
 		fs = append(fs, output.Finding{
-			Severity:      r.severity,
-			Title:         r.title,
-			AffectedAsset: target,
-			Description:   fmt.Sprintf("%s returned HTTP %d.", r.path, status),
-			Evidence:      fmt.Sprintf("HTTP %d at %s", status, target),
-			Remediation:   fmt.Sprintf("Restrict or remove %s from public access.", r.path),
+			Severity:        r.severity,
+			Title:           r.title,
+			AffectedAsset:   target,
+			Description:     fmt.Sprintf("%s returned HTTP %d.", r.path, resp.FinalStatus),
+			Evidence:        validation.EvidenceSummary(resp),
+			Remediation:     fmt.Sprintf("Restrict or remove %s from public access.", r.path),
+			ValidationState: output.ValidationState(validation.ValidationStateClass(resp, true)),
+			FinalURL:        resp.FinalURL,
+			OriginalStatus:  resp.OriginalStatus,
+			FinalStatus:     resp.FinalStatus,
+			RedirectChain:   validation.RedirectSummary(resp),
 		})
 	}
 	return fs
-}
-
-// isNegativeStatus reports whether a status code strongly indicates the
-// resource does not exist or is not meaningful.
-func isNegativeStatus(status int) bool {
-	switch {
-	case status == 404, status == 400, status == 401, status == 403, status == 410:
-		return true
-	case status >= 300 && status < 400:
-		return true
-	}
-	return false
 }
