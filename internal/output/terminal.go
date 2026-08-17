@@ -382,6 +382,27 @@ func (r *Renderer) printFinding(f Finding) {
 	default:
 		dim.Printf("  %s %s — %s\n", prefix, f.Title, f.AffectedAsset)
 	}
+	if f.ValidationState != "" {
+		stateColor := dim
+		switch f.ValidationState {
+		case ValConfirmed:
+			stateColor = green
+		case ValLikely:
+			stateColor = accentDim
+		case ValPossible:
+			stateColor = orange
+		case ValRejected:
+			stateColor = redDim
+		}
+		dim.Printf("       validation: %s", stateColor.Sprint(f.ValidationState))
+		if f.FinalURL != "" && f.FinalURL != f.AffectedAsset {
+			dim.Printf("  → %s", f.FinalURL)
+		}
+		if f.OriginalStatus != 0 && f.FinalStatus != 0 && f.OriginalStatus != f.FinalStatus {
+			dim.Printf("  (HTTP %d→%d)", f.OriginalStatus, f.FinalStatus)
+		}
+		fmt.Println()
+	}
 	if f.Status != "" {
 		dim.Printf("       lifecycle: %s\n", f.Status)
 	}
@@ -975,9 +996,12 @@ const htmlReportTemplate = `<!DOCTYPE html>
                         <div class="finding-item {{html (lower .Severity)}}">
                             <div class="finding-hdr">
                                 <span class="finding-title">{{.Title}}</span>
-                                <span class="finding-badge {{html (lower .Severity)}}">{{.Severity}}</span>
+                                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                    {{if .ValidationState}}<span class="badge info" style="font-size: 0.65rem;">{{.ValidationState}}</span>{{end}}
+                                    <span class="finding-badge {{html (lower .Severity)}}">{{.Severity}}</span>
+                                </div>
                             </div>
-                            <div class="finding-asset">{{.AffectedAsset}}</div>
+                            <div class="finding-asset">{{.AffectedAsset}}{{if and .FinalURL (ne .FinalURL .AffectedAsset)}} → {{.FinalURL}}{{end}}{{if and .OriginalStatus .FinalStatus (ne .OriginalStatus .FinalStatus)}} (HTTP {{.OriginalStatus}}→{{.FinalStatus}}){{end}}</div>
                             <div class="finding-desc">{{.Description}}</div>
                             {{if .Evidence}}
                                 <div class="finding-evidence">{{.Evidence}}</div>
@@ -1141,9 +1165,12 @@ const htmlReportTemplate = `<!DOCTYPE html>
                                 <div class="finding-item {{html (lower .Severity)}}" style="margin-top: 0.5rem;">
                                     <div class="finding-hdr">
                                         <span class="finding-title">{{.Title}}</span>
-                                        <span class="finding-badge {{html (lower .Severity)}}">{{.Severity}}</span>
+                                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                            {{if .ValidationState}}<span class="badge info" style="font-size: 0.65rem;">{{.ValidationState}}</span>{{end}}
+                                            <span class="finding-badge {{html (lower .Severity)}}">{{.Severity}}</span>
+                                        </div>
                                     </div>
-                                    <div class="finding-asset">{{.AffectedAsset}}</div>
+                                    <div class="finding-asset">{{.AffectedAsset}}{{if and .FinalURL (ne .FinalURL .AffectedAsset)}} → {{.FinalURL}}{{end}}</div>
                                     <div class="finding-desc">{{.Description}}</div>
                                     {{if .Evidence}}<div class="finding-evidence">{{.Evidence}}</div>{{end}}
                                     {{if .Remediation}}<div style="font-size: 0.85rem; margin-top: 0.4rem; color: var(--text-dim);">Fix: {{.Remediation}}</div>{{end}}
@@ -1270,6 +1297,16 @@ func (r *Renderer) renderMarkdown(report *Report) {
 		for _, f := range report.Findings {
 			fmt.Printf("### [%s] %s\n", f.Severity, f.Title)
 			fmt.Printf("- **Affected Asset:** `%s`\n", f.AffectedAsset)
+			if f.FinalURL != "" && f.FinalURL != f.AffectedAsset {
+				fmt.Printf("- **Final URL:** `%s`\n", f.FinalURL)
+			}
+			if f.ValidationState != "" {
+				fmt.Printf("- **Validation:** %s", f.ValidationState)
+				if f.OriginalStatus != 0 && f.FinalStatus != 0 && f.OriginalStatus != f.FinalStatus {
+					fmt.Printf(" (HTTP %d→%d)", f.OriginalStatus, f.FinalStatus)
+				}
+				fmt.Println()
+			}
 			if f.Description != "" {
 				fmt.Printf("- **Description:** %s\n", f.Description)
 			}
@@ -1409,6 +1446,13 @@ func (r *Renderer) renderMarkdown(report *Report) {
 			}
 			for _, f := range tr.Findings {
 				fmt.Printf("- **[%s] %s** — `%s`\n", f.Severity, f.Title, f.AffectedAsset)
+				if f.ValidationState != "" {
+					fmt.Printf("  - Validation: %s", f.ValidationState)
+					if f.OriginalStatus != 0 && f.FinalStatus != 0 && f.OriginalStatus != f.FinalStatus {
+						fmt.Printf(" (HTTP %d→%d)", f.OriginalStatus, f.FinalStatus)
+					}
+					fmt.Println()
+				}
 				if f.Evidence != "" {
 					fmt.Printf("  - Evidence: `%s`\n", f.Evidence)
 				}
