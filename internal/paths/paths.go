@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -25,6 +24,7 @@ import (
 	"github.com/QYVORA/qyvora-anansi-cli/internal/assets"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/httpclient"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
+	"github.com/QYVORA/qyvora-anansi-cli/internal/validation"
 )
 
 type pathRule struct {
@@ -78,118 +78,108 @@ func LoadExtensions() []string {
 	return out
 }
 
-type baselineResponse struct {
-	statusCode int
-	bodyLen    int
+// getBaseline is now a simple wrapper around the validation package.
+func getBaseline(validator *validation.Validator, baseURL string) *validation.BaselineProfile {
+	baseline, _ := validator.GetBaseline(baseURL)
+	return baseline
 }
 
-func getBaseline(client *http.Client, baseURL string) baselineResponse {
-	target := strings.TrimRight(baseURL, "/") + fmt.Sprintf("/anansi-404-test-%d", time.Now().UnixNano())
-	req, err := http.NewRequestWithContext(context.Background(), "GET", target, nil)
-	if err != nil {
-		return baselineResponse{statusCode: 404}
-	}
-	req.Header.Set("User-Agent", output.DefaultUA)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return baselineResponse{statusCode: 404}
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 5000))
-	return baselineResponse{
-		statusCode: resp.StatusCode,
-		bodyLen:    len(body),
-	}
-}
-
-func (r pathRule) checkPath(client *http.Client, baseURL string, baseline baselineResponse, stealth bool) *output.Finding {
+func (r pathRule) checkPath(validator *validation.Validator, baseURL string, baseline *validation.BaselineProfile, stealth bool) *output.Finding {
 	target := strings.TrimRight(baseURL, "/") + r.path
-	req, err := http.NewRequestWithContext(context.Background(), "GET", target, nil)
+
+	// Use the validator to properly classify the response
+	respInfo, err := validator.Validate(target, baseline)
 	if err != nil {
 		return nil
 	}
 
-	if stealth {
-		req.Header.Set("User-Agent", output.RandomUA())
-	} else {
-		req.Header.Set("User-Agent", output.DefaultUA)
-	}
+	// Determine if this is a high-value target based on severity
+	isHighValue := r.severity == output.Critical || r.severity == output.High
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == 404 || resp.StatusCode == 400 || resp.StatusCode == 410 || resp.StatusCode == 403 {
+	// Check if we should report this finding
+	if !validation.ShouldReportFinding(respInfo, isHighValue) {
 		return nil
 	}
 
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 5000))
-	if resp.StatusCode == baseline.statusCode && len(body) == baseline.bodyLen {
-		return nil
-	}
-
+	// Build finding based on validation results
 	severity := r.severity
 	title := r.title
-	description := fmt.Sprintf("%s returned HTTP %d", r.path, resp.StatusCode)
-	evidence := fmt.Sprintf("HTTP %d at %s", resp.StatusCode, target)
+	var description string
+	var evidence string
 
-	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
-		followClient := &http.Client{
-			Timeout:   client.Timeout,
-			Transport: client.Transport,
+	// Handle authentication required
+	if respInfo.IsAuthRequired {
+		severity = output.Medium // Downgrade but still report
+		description = fmt.Sprintf("%s requires authentication (original: HTTP %d, final: HTTP %d)",
+			r.path, respInfo.OriginalStatus, respInfo.FinalStatus)
+
+		if len(respInfo.RedirectChain) > 0 {
+			evidence = fmt.Sprintf("Authentication required - Redirect chain: ")
+			for i, hop := range respInfo.RedirectChain {
+				if i > 0 {
+					evidence += " → "
+				}
+				evidence += fmt.Sprintf("%d to %s", hop.StatusCode, hop.ToURL)
+			}
+		} else {
+			evidence = fmt.Sprintf("HTTP %d at %s", respInfo.FinalStatus, target)
 		}
-		fReq, fErr := http.NewRequestWithContext(context.Background(), "GET", target, nil)
-		if fErr == nil {
-			fReq.Header.Set("User-Agent", output.DefaultUA)
-			fResp, fRespErr := followClient.Do(fReq)
-			if fRespErr == nil {
-				defer fResp.Body.Close()
-				finalStatus := fResp.StatusCode
-				finalURL := fResp.Request.URL.String()
+	} else if respInfo.IsAccessDenied {
+		// Access denied is interesting - resource exists but forbidden
+		severity = output.Medium
+		description = fmt.Sprintf("%s exists but access is denied (HTTP 403)", r.path)
+		evidence = fmt.Sprintf("HTTP 403 Forbidden at %s", target)
+	} else if respInfo.IsRedirect {
+		// Clean redirect without auth issues
+		description = fmt.Sprintf("%s returned HTTP %d", r.path, respInfo.OriginalStatus)
 
-				isRootRedirect := false
-				uParsed, pErr := url.Parse(finalURL)
-				if pErr == nil {
-					pathClean := strings.Trim(uParsed.Path, "/")
-					if pathClean == "" || pathClean == "index.html" || pathClean == "index.php" || pathClean == "home" {
-						isRootRedirect = true
-					}
-				}
+		evidence = fmt.Sprintf("Original: HTTP %d at %s\n", respInfo.OriginalStatus, target)
+		evidence += fmt.Sprintf("Final: HTTP %d at %s", respInfo.FinalStatus, respInfo.FinalURL)
 
-				if finalStatus == 404 || finalStatus == 400 || finalStatus == 410 || finalStatus == 403 || isRootRedirect {
-					severity = output.Info
-					title = "[POTENTIAL FALSE POSITIVE] " + r.title
-					description = fmt.Sprintf("%s returned HTTP %d but redirects to %s (HTTP %d)", r.path, resp.StatusCode, finalURL, finalStatus)
-					evidence = fmt.Sprintf("Redirect: HTTP %d -> %s (HTTP %d)", resp.StatusCode, finalURL, finalStatus)
-				} else {
-					evidence = fmt.Sprintf("Redirect: HTTP %d -> %s (HTTP %d)", resp.StatusCode, finalURL, finalStatus)
+		if len(respInfo.RedirectChain) > 0 {
+			evidence += "\nRedirect chain: "
+			for i, hop := range respInfo.RedirectChain {
+				if i > 0 {
+					evidence += " → "
 				}
+				evidence += fmt.Sprintf("%d", hop.StatusCode)
 			}
 		}
+	} else {
+		// Successful direct response
+		description = fmt.Sprintf("%s returned HTTP %d", r.path, respInfo.FinalStatus)
+		evidence = fmt.Sprintf("HTTP %d at %s", respInfo.FinalStatus, target)
 	}
 
-	if severity != output.Info && r.captureBody && (severity == output.Critical || severity == output.High) {
-		snippet := strings.ReplaceAll(string(body), "\x00", "")
+	// Capture body for high-value targets if requested
+	if r.captureBody && isHighValue && len(respInfo.Body) > 0 {
+		snippet := strings.ReplaceAll(string(respInfo.Body), "\x00", "")
 		snippet = strings.TrimSpace(snippet)
 		if len(snippet) > 300 {
 			snippet = snippet[:300] + "..."
 		}
 		if len(snippet) > 0 {
-			evidence += "\n  " + snippet
+			evidence += "\n\nContent preview:\n  " + snippet
 		}
 	}
 
+	// Add validation notes for transparency
+	if len(respInfo.ValidationNotes) > 0 {
+		evidence += fmt.Sprintf("\n\nValidation: %s", strings.Join(respInfo.ValidationNotes, "; "))
+	}
+
 	return &output.Finding{
-		Severity:      severity,
-		Title:         title,
-		AffectedAsset: target,
-		Description:   description,
-		Evidence:      evidence,
-		Remediation:   fmt.Sprintf("Restrict or remove %s from public access.", r.path),
+		Severity:        severity,
+		Title:           title,
+		AffectedAsset:   target,
+		Description:     description,
+		Evidence:        evidence,
+		Remediation:     fmt.Sprintf("Restrict or remove %s from public access.", r.path),
+		ValidationState: output.ValidationState(validation.ValidationStateClass(respInfo, baseline != nil)),
+		FinalURL:        respInfo.FinalURL,
+		OriginalStatus:  respInfo.OriginalStatus,
+		FinalStatus:     respInfo.FinalStatus,
+		RedirectChain:   validation.RedirectSummary(respInfo),
 	}
 }
 
@@ -253,6 +243,13 @@ func extraPathsFromRobots(client *http.Client, baseURL string) []pathRule {
 func Run(out *output.Renderer, liveHosts []output.ProbeResult, deep bool, timeout int, threads int, delayMs int, stealth bool) []output.Finding {
 	client := httpclient.NewNoRedirect(timeout)
 
+	// Create validator with proper user agent
+	userAgent := output.DefaultUA
+	if stealth {
+		userAgent = output.RandomUA()
+	}
+	validator := validation.NewValidator(client, userAgent)
+
 	rules := loadRules("wordlists/paths/default.txt")
 	if deep {
 		rules = append(rules, loadRules("wordlists/paths/deep.txt")...)
@@ -268,9 +265,9 @@ func Run(out *output.Renderer, liveHosts []output.ProbeResult, deep bool, timeou
 	}
 
 	// Build a per-host baseline cache to avoid re-fetching for every rule.
-	baselineCache := make(map[string]baselineResponse, len(liveHosts))
+	baselineCache := make(map[string]*validation.BaselineProfile, len(liveHosts))
 	for _, host := range liveHosts {
-		baselineCache[host.URL] = getBaseline(client, host.URL)
+		baselineCache[host.URL] = getBaseline(validator, host.URL)
 	}
 
 	// Discover per-host extra paths from robots.txt.
@@ -330,7 +327,7 @@ func Run(out *output.Renderer, liveHosts []output.ProbeResult, deep bool, timeou
 					time.Sleep(delay)
 				}
 
-				f := p.rule.checkPath(client, p.host.URL, baselineCache[p.host.URL], stealth)
+				f := p.rule.checkPath(validator, p.host.URL, baselineCache[p.host.URL], stealth)
 				if f != nil {
 					mu.Lock()
 					allFindings = append(allFindings, *f)
