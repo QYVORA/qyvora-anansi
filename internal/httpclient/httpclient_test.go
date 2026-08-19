@@ -1,6 +1,7 @@
 package httpclient
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,7 +18,11 @@ func TestFollowRedirects(t *testing.T) {
 	defer srv.Close()
 
 	client := NewFollowRedirects(5)
-	resp, err := client.Get(srv.URL)
+	req, err := http.NewRequestWithContext(context.Background(), "GET", srv.URL, nil)
+	if err != nil {
+		t.Fatalf("NewRequestWithContext: %v", err)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("GET: %v", err)
 	}
@@ -41,7 +46,11 @@ func TestNoRedirect(t *testing.T) {
 	defer srv.Close()
 
 	client := NewNoRedirect(5)
-	resp, err := client.Get(srv.URL)
+	req, err := http.NewRequestWithContext(context.Background(), "GET", srv.URL, nil)
+	if err != nil {
+		t.Fatalf("NewRequestWithContext: %v", err)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("GET: %v", err)
 	}
@@ -65,7 +74,11 @@ func TestNegativeRedirectsDisablesFollowing(t *testing.T) {
 	defer srv.Close()
 
 	client := New(5, -1)
-	resp, err := client.Get(srv.URL)
+	req, err := http.NewRequestWithContext(context.Background(), "GET", srv.URL, nil)
+	if err != nil {
+		t.Fatalf("NewRequestWithContext: %v", err)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("GET: %v", err)
 	}
