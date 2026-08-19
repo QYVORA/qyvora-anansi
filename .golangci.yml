@@ -48,5 +48,8 @@ linters:
       - linters:
           - revive
         text: "exported .* should have comment"
+      - linters:
+          - revive
+        text: "stutters; consider calling this"
     presets:
       - comments
