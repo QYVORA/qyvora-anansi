@@ -18,6 +18,17 @@ const (
 	Info     = "INFO"
 )
 
+// Confidence levels describe how strong the evidence is that a finding is real.
+// This is independent of severity: a high-severity finding may have low
+// confidence when based only on version banners.
+const (
+	Confirmed      = "CONFIRMED"      // direct evidence, validated, reproducible
+	ConfHigh       = "HIGH"           // strong indicators, multiple signals
+	ConfMedium     = "MEDIUM"         // moderate evidence, some signals
+	ConfLow        = "LOW"            // weak evidence, single signal (version banners, headers)
+	ConfInformational = "INFORMATIONAL" // observation only, no security implication
+)
+
 // Source type constants identify how a subdomain was discovered.
 const (
 	SourceCrtSh    = "crtsh"
@@ -63,6 +74,7 @@ const (
 // confirm a resource exists.
 type Finding struct {
 	Severity      string
+	Confidence    string
 	Title         string
 	AffectedAsset string
 	Description   string

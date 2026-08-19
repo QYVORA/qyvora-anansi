@@ -283,6 +283,23 @@ func TestProgressRendersOnTTY(t *testing.T) {
 	}
 }
 
+func TestFindingConfidenceLevels(t *testing.T) {
+	// A finding with Low confidence should not be treated as confirmed
+	f := Finding{
+		Severity:   Critical,
+		Confidence: ConfLow,
+		Title:      "Test",
+	}
+	if f.Confidence != ConfLow {
+		t.Errorf("expected Low confidence, got %s", f.Confidence)
+	}
+	// Confirmed confidence
+	f.Confidence = Confirmed
+	if f.Confidence != Confirmed {
+		t.Errorf("expected Confirmed confidence, got %s", f.Confidence)
+	}
+}
+
 func TestRenderBannerLineLogoPalette(t *testing.T) {
 	nBody, nFace := 0, 0
 	for _, line := range strings.Split(AnansiASCIIArt, "\n") {
