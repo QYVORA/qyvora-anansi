@@ -227,6 +227,35 @@ func TestChainRanking(t *testing.T) {
 	}
 }
 
+func TestPickBestPrefersConfirmed(t *testing.T) {
+	confirmed := output.Finding{Severity: "MEDIUM", Title: "A", ValidationState: output.ValConfirmed}
+	possible := output.Finding{Severity: "MEDIUM", Title: "B", ValidationState: output.ValPossible}
+
+	best := pickBest([]output.Finding{possible, confirmed})
+	if best.Title != "A" {
+		t.Errorf("expected confirmed finding to be picked, got %q", best.Title)
+	}
+}
+
+func TestValidationRank(t *testing.T) {
+	tests := []struct {
+		state output.ValidationState
+		want  int
+	}{
+		{output.ValConfirmed, 4},
+		{output.ValLikely, 3},
+		{output.ValPossible, 2},
+		{output.ValUnconfirmed, 1},
+		{"", 0},
+	}
+	for _, tt := range tests {
+		got := validationRank(tt.state)
+		if got != tt.want {
+			t.Errorf("validationRank(%q) = %d, want %d", tt.state, got, tt.want)
+		}
+	}
+}
+
 func chainNames(chains []output.ExploitChain) []string {
 	names := make([]string, 0, len(chains))
 	for _, c := range chains {

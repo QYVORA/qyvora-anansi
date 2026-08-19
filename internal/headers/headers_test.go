@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/QYVORA/qyvora-anansi-cli/internal/httpclient"
 	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
@@ -176,6 +177,28 @@ func TestLoadHeaderRulesParsesEmbeddedWordlist(t *testing.T) {
 		if !set[required] {
 			t.Errorf("embedded rules missing %q", required)
 		}
+	}
+}
+
+// TestAuditURLSkipsErrorResponses verifies no findings are produced for 5xx responses.
+func TestAuditURLSkipsErrorResponses(t *testing.T) {
+	// Server that returns 500 with no security headers should produce zero findings
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(500)
+		_, _ = w.Write([]byte("internal server error"))
+	}))
+	defer srv.Close()
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	result := auditURL(client, srv.URL, false)
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if !result.Success {
+		t.Fatal("expected success")
+	}
+	if len(result.Findings) != 0 {
+		t.Errorf("expected 0 findings on 5xx response, got %d: %v", len(result.Findings), result.Findings)
 	}
 }
 

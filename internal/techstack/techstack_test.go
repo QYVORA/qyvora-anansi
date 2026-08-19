@@ -188,6 +188,25 @@ func TestDetectVersionMediaWiki(t *testing.T) {
 	}
 }
 
+// TestMatchVulnsLowConfidence verifies that version-only CVE findings have Low confidence.
+func TestMatchVulnsLowConfidence(t *testing.T) {
+	load()
+	// Create a finding via matchVulns - it should have Low confidence
+	findings := matchVulns("WordPress", "core", "5.8", "https://example.com")
+	// If there are any findings, they should all be Low confidence
+	for _, f := range findings {
+		if f.Confidence != output.ConfLow {
+			t.Errorf("expected Low confidence for version-only CVE finding, got %s", f.Confidence)
+		}
+		if !strings.Contains(f.Evidence, "version-only") {
+			t.Errorf("expected evidence to note version-only match, got: %s", f.Evidence)
+		}
+	}
+	if len(findings) == 0 {
+		t.Fatal("expected at least one version-only CVE finding for WordPress 5.8")
+	}
+}
+
 func TestMatchVulnsMagento(t *testing.T) {
 	load()
 	fs := matchVulns("Magento", "core", "2.4.2", "https://example.com")
