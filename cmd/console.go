@@ -548,10 +548,6 @@ func (s *consoleSession) printHelp() {
 	u.Rule()
 }
 
-func (s *consoleSession) printBanner() {
-	s.ui.Banner()
-}
-
 func (s *consoleSession) printOptions() {
 	u := s.ui
 	fmt.Fprintln(u.w)
