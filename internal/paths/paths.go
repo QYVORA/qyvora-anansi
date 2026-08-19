@@ -84,7 +84,7 @@ func getBaseline(validator *validation.Validator, baseURL string) *validation.Ba
 	return baseline
 }
 
-func (r pathRule) checkPath(validator *validation.Validator, baseURL string, baseline *validation.BaselineProfile, stealth bool) *output.Finding {
+func (r pathRule) checkPath(validator *validation.Validator, baseURL string, baseline *validation.BaselineProfile, _ bool) *output.Finding {
 	target := strings.TrimRight(baseURL, "/") + r.path
 
 	// Use the validator to properly classify the response
@@ -114,7 +114,7 @@ func (r pathRule) checkPath(validator *validation.Validator, baseURL string, bas
 			r.path, respInfo.OriginalStatus, respInfo.FinalStatus)
 
 		if len(respInfo.RedirectChain) > 0 {
-			evidence = fmt.Sprintf("Authentication required - Redirect chain: ")
+			evidence = "Authentication required - Redirect chain: "
 			for i, hop := range respInfo.RedirectChain {
 				if i > 0 {
 					evidence += " → "

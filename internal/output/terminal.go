@@ -42,10 +42,10 @@ const (
 func renderBannerLine(line string) string {
 	var b strings.Builder
 	for _, r := range line {
-		switch {
-		case r == ' ':
+		switch r {
+		case ' ':
 			b.WriteRune(r)
-		case r == ';':
+		case ';':
 			b.WriteString(ansiBody + string(r) + "\x1b[0m")
 		default:
 			b.WriteString(ansiFace + string(r) + "\x1b[0m")

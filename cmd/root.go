@@ -294,7 +294,7 @@ func runScanTarget(args []string, console bool) error {
 		"modules": flagModules,
 		"stealth": flagStealth,
 	})
-	phaseEmit := func(module, num, name string) func() {
+	phaseEmit := func(module, _ string, name string) func() {
 		emit(events.LevelInfo, events.PhaseStarted, map[string]any{"phase": module, "name": name})
 		return func() {
 			emit(events.LevelInfo, events.PhaseCompleted, map[string]any{"phase": module, "name": name})

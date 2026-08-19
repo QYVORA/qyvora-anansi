@@ -588,7 +588,7 @@ func discoverPlugins(client *http.Client, base, body string, stealth bool) []plu
 // a locationMatch are only reported when a redirect Location matches; rules
 // with neither are reported on any response that passes validation (not a
 // soft-404, not a SPA catch-all, not a redirect-to-root).
-func checkPaths(validator *validation.Validator, base string, rules []pathRule, baseline *validation.BaselineProfile, stealth bool) []output.Finding {
+func checkPaths(validator *validation.Validator, base string, rules []pathRule, baseline *validation.BaselineProfile, _ bool) []output.Finding {
 	load()
 	var fs []output.Finding
 	for _, r := range rules {

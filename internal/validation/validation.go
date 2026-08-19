@@ -202,7 +202,7 @@ func (v *Validator) fetchWithRedirects(targetURL string, trackRedirects bool) (*
 	noRedirectClient := &http.Client{
 		Timeout:   v.client.Timeout,
 		Transport: v.client.Transport,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
@@ -765,9 +765,7 @@ func EvidenceSummary(resp *ResponseInfo) string {
 	}
 
 	// Validation notes
-	for _, note := range resp.ValidationNotes {
-		parts = append(parts, note)
-	}
+	parts = append(parts, resp.ValidationNotes...)
 
 	return strings.Join(parts, " | ")
 }
