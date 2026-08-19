@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -53,7 +54,7 @@ func isInteractiveShell(line string) bool {
 // (the command's own stderr is already visible); only a genuine execution
 // failure (missing shell, permissions) surfaces.
 func (s *consoleSession) runShell(cmdline string) error {
-	cmd := exec.Command("/bin/sh", "-c", cmdline)
+	cmd := exec.CommandContext(context.Background(), "/bin/sh", "-c", cmdline)
 	cmd.Dir = s.cwd
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -73,7 +74,7 @@ func (s *consoleSession) runShell(cmdline string) error {
 // console working directory. When the shell exits, control returns to the
 // console regardless of the shell's exit status.
 func (s *consoleSession) runInteractiveShell() error {
-	cmd := exec.Command("/bin/sh")
+	cmd := exec.CommandContext(context.Background(), "/bin/sh")
 	cmd.Dir = s.cwd
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
