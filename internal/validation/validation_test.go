@@ -13,11 +13,11 @@ func TestRealHTTP200(t *testing.T) {
 		// Baseline should hit a different path
 		if strings.Contains(r.URL.Path, "anansi-nonexistent") {
 			w.WriteHeader(404)
-			w.Write([]byte("Not Found"))
+			_, _ = w.Write([]byte("Not Found"))
 			return
 		}
 		w.WriteHeader(200)
-		w.Write([]byte("<html><head><title>Valid Page - Real Content</title></head><body><h1>Welcome</h1><p>This is real unique content for a real page.</p></body></html>"))
+		_, _ = w.Write([]byte("<html><head><title>Valid Page - Real Content</title></head><body><h1>Welcome</h1><p>This is real unique content for a real page.</p></body></html>"))
 	}))
 	defer server.Close()
 
@@ -46,9 +46,9 @@ func TestRealHTTP200(t *testing.T) {
 
 // TestRealHTTP404 verifies that a true 404 is recognized.
 func TestRealHTTP404(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(404)
-		w.Write([]byte("Not found"))
+		_, _ = w.Write([]byte("Not found"))
 	}))
 	defer server.Close()
 
@@ -77,9 +77,9 @@ func TestRealHTTP404(t *testing.T) {
 
 // TestSoft404Returning200 verifies detection of soft-404 (200 status but "not found" content).
 func TestSoft404Returning200(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(200)
-		w.Write([]byte("<html><head><title>404 - Page Not Found</title></head><body><h1>404 Not Found</h1></body></html>"))
+		_, _ = w.Write([]byte("<html><head><title>404 - Page Not Found</title></head><body><h1>404 Not Found</h1></body></html>"))
 	}))
 	defer server.Close()
 
@@ -114,7 +114,7 @@ func Test301Redirect(t *testing.T) {
 			return
 		}
 		w.WriteHeader(200)
-		w.Write([]byte("New page content"))
+		_, _ = w.Write([]byte("New page content"))
 	}))
 	defer server.Close()
 
@@ -159,7 +159,7 @@ func TestRedirectToLogin(t *testing.T) {
 		}
 		if r.URL.Path == "/login" {
 			w.WriteHeader(200)
-			w.Write([]byte("<html><title>Login</title><body>Please log in</body></html>"))
+			_, _ = w.Write([]byte("<html><title>Login</title><body>Please log in</body></html>"))
 			return
 		}
 	}))
@@ -197,7 +197,7 @@ func TestRedirectToRoot(t *testing.T) {
 			return
 		}
 		w.WriteHeader(200)
-		w.Write([]byte("<html><title>Home</title><body>Welcome</body></html>"))
+		_, _ = w.Write([]byte("<html><title>Home</title><body>Welcome</body></html>"))
 	}))
 	defer server.Close()
 
@@ -226,9 +226,9 @@ func TestRedirectToRoot(t *testing.T) {
 
 // Test403Forbidden verifies 403 is recognized as access denied, not non-existent.
 func Test403Forbidden(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(403)
-		w.Write([]byte("Forbidden"))
+		_, _ = w.Write([]byte("Forbidden"))
 	}))
 	defer server.Close()
 
@@ -262,9 +262,9 @@ func Test403Forbidden(t *testing.T) {
 
 // Test401Unauthorized verifies 401 is recognized as authentication required.
 func Test401Unauthorized(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(401)
-		w.Write([]byte("Unauthorized"))
+		_, _ = w.Write([]byte("Unauthorized"))
 	}))
 	defer server.Close()
 
@@ -300,10 +300,10 @@ func Test401Unauthorized(t *testing.T) {
 func TestSPACatchAll(t *testing.T) {
 	spaShell := "<html><head><title>My SPA</title></head><body><div id='root'></div></body></html>"
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		// Always return the same SPA shell regardless of path
 		w.WriteHeader(200)
-		w.Write([]byte(spaShell))
+		_, _ = w.Write([]byte(spaShell))
 	}))
 	defer server.Close()
 
@@ -345,12 +345,12 @@ func TestLegitimatePageContainingNotFoundText(t *testing.T) {
 		// Baseline should be different
 		if strings.Contains(r.URL.Path, "anansi-nonexistent") {
 			w.WriteHeader(404)
-			w.Write([]byte("Not Found"))
+			_, _ = w.Write([]byte("Not Found"))
 			return
 		}
 		w.WriteHeader(200)
 		// A legitimate article about HTTP errors
-		w.Write([]byte("<html><head><title>Understanding HTTP Errors - Complete Guide</title></head><body><h1>HTTP Error Codes</h1><p>The 404 error means page not found. It's commonly seen when a resource doesn't exist. Here's how to handle it properly in your application...</p><p>More detailed content here about various error codes and their meanings.</p></body></html>"))
+		_, _ = w.Write([]byte("<html><head><title>Understanding HTTP Errors - Complete Guide</title></head><body><h1>HTTP Error Codes</h1><p>The 404 error means page not found. It's commonly seen when a resource doesn't exist. Here's how to handle it properly in your application...</p><p>More detailed content here about various error codes and their meanings.</p></body></html>"))
 	}))
 	defer server.Close()
 
@@ -376,9 +376,9 @@ func TestLegitimatePageContainingNotFoundText(t *testing.T) {
 
 // Test500ServerError verifies 5xx responses are handled correctly.
 func Test500ServerError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(500)
-		w.Write([]byte("Internal Server Error"))
+		_, _ = w.Write([]byte("Internal Server Error"))
 	}))
 	defer server.Close()
 
@@ -408,7 +408,7 @@ func Test500ServerError(t *testing.T) {
 
 // TestBaselineCaching verifies that baseline is cached per base URL.
 func TestBaselineCaching(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(404)
 	}))
 	defer server.Close()
@@ -601,7 +601,7 @@ func TestCustomErrorPageSoft404(t *testing.T) {
 		}
 		// All other paths return the same custom error page (soft-404)
 		w.WriteHeader(200)
-		w.Write([]byte(errorPage))
+		_, _ = w.Write([]byte(errorPage))
 	}))
 	defer server.Close()
 
@@ -626,16 +626,16 @@ func TestContentMismatchWithBaseline(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "anansi-nonexistent") {
 			w.WriteHeader(404)
-			w.Write([]byte("Not Found"))
+			_, _ = w.Write([]byte("Not Found"))
 			return
 		}
 		if r.URL.Path == "/dashboard" {
 			w.WriteHeader(200)
-			w.Write([]byte("<html><head><title>Admin Dashboard</title></head><body><h1>Dashboard</h1><p>Welcome back, admin.</p><p>System status: operational.</p><p>Last login: 2024-01-15.</p></body></html>"))
+			_, _ = w.Write([]byte("<html><head><title>Admin Dashboard</title></head><body><h1>Dashboard</h1><p>Welcome back, admin.</p><p>System status: operational.</p><p>Last login: 2024-01-15.</p></body></html>"))
 			return
 		}
 		w.WriteHeader(200)
-		w.Write([]byte("<html><head><title>Home</title></head><body><p>Welcome to our site.</p></body></html>"))
+		_, _ = w.Write([]byte("<html><head><title>Home</title></head><body><p>Welcome to our site.</p></body></html>"))
 	}))
 	defer server.Close()
 
@@ -665,7 +665,7 @@ func TestMultipleRedirectChain(t *testing.T) {
 			http.Redirect(w, r, "/end", http.StatusFound)
 		case "/end":
 			w.WriteHeader(200)
-			w.Write([]byte("<html><head><title>Final Destination</title></head><body>You arrived.</body></html>"))
+			_, _ = w.Write([]byte("<html><head><title>Final Destination</title></head><body>You arrived.</body></html>"))
 		default:
 			w.WriteHeader(404)
 		}
@@ -702,7 +702,7 @@ func TestShortContentDetection(t *testing.T) {
 			return
 		}
 		w.WriteHeader(200)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 	}))
 	defer server.Close()
 
@@ -729,7 +729,7 @@ func TestRedirectTo404Page(t *testing.T) {
 			http.Redirect(w, r, "/also-missing", http.StatusFound)
 		case "/also-missing":
 			w.WriteHeader(404)
-			w.Write([]byte("Not Found"))
+			_, _ = w.Write([]byte("Not Found"))
 		default:
 			w.WriteHeader(404)
 		}
@@ -757,10 +757,10 @@ func TestRedirectTo404Page(t *testing.T) {
 // TestStatusNotOKWithMatchingBaseline verifies that when both baseline and
 // target return the same non-200 status, it is treated as invalid.
 func TestStatusNotOKWithMatchingBaseline(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		// Return 503 for everything
 		w.WriteHeader(503)
-		w.Write([]byte("Service Unavailable"))
+		_, _ = w.Write([]byte("Service Unavailable"))
 	}))
 	defer server.Close()
 

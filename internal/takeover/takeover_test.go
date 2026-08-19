@@ -17,7 +17,7 @@ import (
 // server without DNS.
 func dialAll(t *testing.T, srv *httptest.Server) *http.Client {
 	t.Helper()
-	dial := func(ctx context.Context, network, addr string) (net.Conn, error) {
+	dial := func(ctx context.Context, network, _ string) (net.Conn, error) {
 		return (&net.Dialer{}).DialContext(ctx, network, srv.Listener.Addr().String())
 	}
 	return &http.Client{Transport: &http.Transport{DialContext: dial}}
@@ -26,8 +26,8 @@ func dialAll(t *testing.T, srv *httptest.Server) *http.Client {
 // TestCheckTakeoverConfirmsDanglingCNAME verifies a dead CNAME matching a
 // fingerprint whose body signature is served is reported CRITICAL.
 func TestCheckTakeoverConfirmsDanglingCNAME(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, "<html>There isn't a GitHub Pages site here.</html>")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, "<html>There isn't a GitHub Pages site here.</html>")
 	}))
 	defer srv.Close()
 
@@ -49,8 +49,8 @@ func TestCheckTakeoverConfirmsDanglingCNAME(t *testing.T) {
 // TestCheckTakeoverIgnoresLiveCNAMEs: a dead CNAME whose body does not match
 // the fingerprint must not be reported.
 func TestCheckTakeoverIgnoresLiveCNAMEs(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, "<html>a real site is here</html>")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, "<html>a real site is here</html>")
 	}))
 	defer srv.Close()
 
@@ -63,8 +63,8 @@ func TestCheckTakeoverIgnoresLiveCNAMEs(t *testing.T) {
 // TestCheckTakeoverUnrelatedCNAMESkipsService ensures a CNAME that matches no
 // fingerprint is ignored entirely.
 func TestCheckTakeoverUnrelatedCNAMESkipsService(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, "There isn't a GitHub Pages site here.")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, "There isn't a GitHub Pages site here.")
 	}))
 	defer srv.Close()
 

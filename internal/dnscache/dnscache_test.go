@@ -67,7 +67,7 @@ func TestCacheMaxEntriesClear(t *testing.T) {
 func TestLookupHostUsesCache(t *testing.T) {
 	broken := &net.Resolver{
 		PreferGo: true,
-		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+		Dial: func(_ context.Context, _, _ string) (net.Conn, error) {
 			return nil, &net.DNSError{Err: "blackhole", IsTimeout: true}
 		},
 	}
@@ -90,7 +90,7 @@ func TestLookupHostUsesCache(t *testing.T) {
 func TestLookupHostPropagatesResolverError(t *testing.T) {
 	broken := &net.Resolver{
 		PreferGo: true,
-		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+		Dial: func(_ context.Context, _, _ string) (net.Conn, error) {
 			return nil, &net.DNSError{Err: "blackhole", IsTimeout: true}
 		},
 	}

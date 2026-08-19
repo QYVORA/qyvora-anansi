@@ -12,7 +12,7 @@ import (
 
 // TestAuditMissingSecurityHeaders flags every absent hardening header.
 func TestAuditMissingSecurityHeaders(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Server", "nginx/1.24.0")
 	}))
 	defer srv.Close()
@@ -45,7 +45,7 @@ func TestAuditMissingSecurityHeaders(t *testing.T) {
 
 // TestAuditPresentHeadersProducesNoFindings.
 func TestAuditPresentHeadersProducesNoFindings(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Strict-Transport-Security", "max-age=31536000")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'")
 		w.Header().Set("X-Frame-Options", "DENY")
@@ -66,7 +66,7 @@ func TestAuditPresentHeadersProducesNoFindings(t *testing.T) {
 
 // TestCORSWildcard flags Access-Control-Allow-Origin: *.
 func TestCORSWildcard(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 	}))
 	defer srv.Close()
@@ -138,7 +138,7 @@ func TestCORSReflectionWithCredentials(t *testing.T) {
 
 // TestRunConcurrent gathers results across hosts and dedups per URL.
 func TestRunConcurrent(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
 	defer srv.Close()
 
 	live := []output.ProbeResult{
