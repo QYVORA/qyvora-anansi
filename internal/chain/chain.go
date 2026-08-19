@@ -279,11 +279,29 @@ func finishChain(name, summary string, steps []output.ChainStep) output.ExploitC
 func pickBest(fs []output.Finding) output.Finding {
 	best := fs[0]
 	for _, f := range fs[1:] {
-		if severityRank(f.Severity) > severityRank(best.Severity) {
+		fr := severityRank(f.Severity)
+		br := severityRank(best.Severity)
+		if fr > br {
+			best = f
+		} else if fr == br && validationRank(f.ValidationState) > validationRank(best.ValidationState) {
 			best = f
 		}
 	}
 	return best
+}
+
+func validationRank(vs output.ValidationState) int {
+	switch vs {
+	case output.ValConfirmed:
+		return 4
+	case output.ValLikely:
+		return 3
+	case output.ValPossible:
+		return 2
+	case output.ValUnconfirmed:
+		return 1
+	}
+	return 0
 }
 
 func maxRank(fs []output.Finding) int {

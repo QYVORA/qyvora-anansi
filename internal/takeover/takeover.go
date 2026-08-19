@@ -88,6 +88,7 @@ func checkTakeover(client *http.Client, subdomain string, deadCNAMEs []string, s
 			if strings.Contains(strings.ToLower(string(body)), strings.ToLower(fp.bodyMatch)) {
 				return &output.Finding{
 					Severity:      output.Critical,
+					Confidence:    output.ConfHigh,
 					Title:         "Subdomain Takeover — " + fp.name,
 					AffectedAsset: subdomain,
 					Description:   subdomain + " has a dangling CNAME to " + fp.name + " (" + cname + ") but the resource is unclaimed. This subdomain can be taken over.",

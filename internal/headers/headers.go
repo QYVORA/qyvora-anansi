@@ -84,6 +84,16 @@ func auditURL(client *http.Client, url string, stealth bool) *output.HeaderResul
 	_, _ = io.CopyN(io.Discard, resp.Body, 4096)
 	_ = resp.Body.Close()
 
+	// Do not audit error responses: a 5xx indicates the server is unhealthy.
+	// Missing headers or reflecting CORS on error pages are not actionable.
+	if resp.StatusCode >= 500 {
+		return &output.HeaderResult{
+			URL:     url,
+			Headers: map[string]string{},
+			Success: true,
+		}
+	}
+
 	hmap := map[string]string{}
 	for _, h := range securityHeaders {
 		hmap[h] = resp.Header.Get(h)
@@ -103,6 +113,7 @@ func auditURL(client *http.Client, url string, stealth bool) *output.HeaderResul
 		if hmap[rule.header] == "" {
 			result.Findings = append(result.Findings, output.Finding{
 				Severity:      rule.severity,
+				Confidence:    output.ConfLow,
 				Title:         rule.title,
 				AffectedAsset: url,
 				Description:   rule.description,
@@ -115,6 +126,7 @@ func auditURL(client *http.Client, url string, stealth bool) *output.HeaderResul
 	if acao == "*" {
 		result.Findings = append(result.Findings, output.Finding{
 			Severity:      output.Medium,
+			Confidence:    output.ConfMedium,
 			Title:         "CORS Wildcard Origin",
 			AffectedAsset: url,
 			Description:   "Server allows requests from any origin.",
@@ -123,15 +135,18 @@ func auditURL(client *http.Client, url string, stealth bool) *output.HeaderResul
 		})
 	} else if strings.Contains(acao, "evil-attacker.com") {
 		sev := output.High
+		conf := output.ConfHigh
 		title := "CORS Origin Reflection"
 		desc := "Server reflects arbitrary Origin header."
 		if strings.EqualFold(acac, "true") {
 			sev = output.Critical
+			conf = output.Confirmed
 			title = "CORS Origin Reflection with Credentials"
 			desc = "Server reflects arbitrary origin AND allows credentials — full CORS exploit chain possible."
 		}
 		result.Findings = append(result.Findings, output.Finding{
 			Severity:      sev,
+			Confidence:    conf,
 			Title:         title,
 			AffectedAsset: url,
 			Description:   desc,

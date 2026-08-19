@@ -508,10 +508,11 @@ func matchVulns(cms, target, version, asset string) []output.Finding {
 		}
 		fs = append(fs, output.Finding{
 			Severity:      r.severity,
+			Confidence:    output.ConfLow,
 			Title:         r.title,
 			AffectedAsset: asset,
 			Description:   r.description,
-			Evidence:      fmt.Sprintf("Detected %s %s %s", cms, target, version),
+			Evidence:      fmt.Sprintf("Detected %s %s %s (version-only match; no exploitation validated)", cms, target, version),
 			Remediation:   r.remediation,
 		})
 	}

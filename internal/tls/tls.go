@@ -92,6 +92,7 @@ func generateFindings(r *output.TLSResult) []output.Finding {
 	if r.Expired {
 		findings = append(findings, output.Finding{
 			Severity:      output.Critical,
+			Confidence:    output.Confirmed,
 			Title:         "TLS Certificate Expired",
 			AffectedAsset: r.Hostname,
 			Description:   fmt.Sprintf("Certificate expired on %s.", r.ValidTo),
@@ -101,6 +102,7 @@ func generateFindings(r *output.TLSResult) []output.Finding {
 	} else if r.ExpiringSoon {
 		findings = append(findings, output.Finding{
 			Severity:      output.High,
+			Confidence:    output.Confirmed,
 			Title:         fmt.Sprintf("TLS Certificate Expiring in %d Days", r.DaysUntilExpiry),
 			AffectedAsset: r.Hostname,
 			Evidence:      fmt.Sprintf("NotAfter: %s", r.ValidTo),
@@ -111,6 +113,7 @@ func generateFindings(r *output.TLSResult) []output.Finding {
 	if r.SelfSigned {
 		findings = append(findings, output.Finding{
 			Severity:      output.High,
+			Confidence:    output.Confirmed,
 			Title:         "Self-Signed TLS Certificate",
 			AffectedAsset: r.Hostname,
 			Description:   "Certificate is not signed by a trusted CA.",
@@ -123,6 +126,7 @@ func generateFindings(r *output.TLSResult) []output.Finding {
 	if weakProtos[r.Protocol] {
 		findings = append(findings, output.Finding{
 			Severity:      output.High,
+			Confidence:    output.Confirmed,
 			Title:         fmt.Sprintf("Weak TLS Protocol: %s", r.Protocol),
 			AffectedAsset: r.Hostname,
 			Description:   fmt.Sprintf("Server negotiated deprecated protocol %s.", r.Protocol),
