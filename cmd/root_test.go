@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -74,6 +76,38 @@ func TestVersionSubcommandPrintsVersion(t *testing.T) {
 	}
 	if got := buf.String(); got != "v9.9.9-rc1\n" {
 		t.Errorf("version subcommand printed %q, want %q", got, "v9.9.9-rc1\n")
+	}
+}
+
+// TestVersionSubcommandJSONOutput verifies the shared QYVORA output contract:
+// `-o json` on the version verb emits a machine-readable object, and an
+// unsupported format is rejected as a usage error.
+func TestVersionSubcommandJSONOutput(t *testing.T) {
+	old := Version
+	Version = "v9.9.9-rc1"
+	defer func() { Version = old }()
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetArgs([]string{"version", "-o", "json"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Execute version -o json: %v", err)
+	}
+	var parsed map[string]string
+	if err := json.Unmarshal(buf.Bytes(), &parsed); err != nil {
+		t.Fatalf("version -o json emitted invalid JSON %q: %v", buf.String(), err)
+	}
+	if parsed["framework"] != "anansi" || parsed["version"] != "v9.9.9-rc1" {
+		t.Errorf("version -o json = %v, want framework=anansi version=v9.9.9-rc1", parsed)
+	}
+
+	rootCmd.SetOut(&buf)
+	buf.Reset()
+	rootCmd.SetArgs([]string{"version", "-o", "yaml"})
+	err := rootCmd.Execute()
+	var ue *usageError
+	if !errors.As(err, &ue) {
+		t.Errorf("version -o yaml error = %v, want usageError (exit 2)", err)
 	}
 }
 

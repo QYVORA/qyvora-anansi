@@ -4,6 +4,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -55,13 +56,29 @@ var (
 var Version = "dev"
 
 // versionCmd prints the build version.  The installer and CI use it to
-// verify a genuine binary is on the system.
+// verify a genuine binary is on the system. It honors the shared QYVORA
+// output contract: `-o/--output json` emits a machine-readable object.
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the ANANSI CLI version",
 	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, _ []string) {
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		if strings.EqualFold(flagOut, "json") {
+			data, err := json.Marshal(map[string]string{
+				"framework": "anansi",
+				"version":   Version,
+			})
+			if err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), string(data))
+			return nil
+		}
+		if !strings.EqualFold(flagOut, "terminal") {
+			return &usageError{fmt.Errorf("invalid output format %q for version (terminal, json)", flagOut)}
+		}
 		cmd.Println(Version)
+		return nil
 	},
 }
 
