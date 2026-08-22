@@ -42,6 +42,11 @@ jobs:
         with:
           go-version: '1.22'
 
+      # Gate the release on the full test suite so a broken tag can never
+      # publish binaries.
+      - name: Test
+        run: go test ./... -count=1 -timeout 120s
+
       - name: Build
         env:
           GOOS: ${{ matrix.goos }}
