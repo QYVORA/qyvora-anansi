@@ -88,6 +88,14 @@ func TestExternalHostsAllowlist(t *testing.T) {
 		"fonts.googleapis.com", // font CDN referenced by the HTML report template
 		"evil-attacker.com",    // CORS audit: Origin header sent to test targets
 		"crt.sh",               // certificate transparency log used by discovery
+
+		// Official QYVORA release infrastructure, contacted exclusively by
+		// internal/selfupdate (`anansi updates`): the GitHub Releases API and
+		// GitHub's asset storage. Reviewed as part of the self-update system;
+		// downloads are pinned to these hosts and verified against the
+		// release SHA-256 manifest before installation.
+		"api.github.com",
+		"github.com",
 	}
 	allowed := map[string]bool{}
 	for _, h := range allowlist {

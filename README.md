@@ -263,6 +263,42 @@ Uninstall with `make uninstall-user` (user) or `sudo make uninstall`.
 
 ---
 
+## Updating
+
+Stay current with a single command:
+
+```bash
+anansi updates        # `anansi update` works as an alias
+```
+
+The command:
+
+1. Reads the installed version — the same value `anansi version` reports.
+2. Queries the official QYVORA GitHub releases
+   (`github.com/QYVORA/qyvora-anansi-cli/releases`); no other source is ever contacted.
+3. Compares versions semantically (`v1.10.0 > v1.9.0`) and reports whether an update exists.
+4. Downloads the release artifact built for your OS and CPU architecture
+   (`anansi-linux-amd64`, `anansi-macos-arm64`, `anansi-windows-amd64.exe`, …).
+5. Verifies its SHA-256 against the `checksums.txt` manifest published with the
+   release; installation never proceeds on a mismatch.
+6. Swaps the new binary in atomically, preserving the original file permissions.
+7. Cleans up all temporary files and confirms the new version.
+
+Notes:
+
+- No Go toolchain, Git, or source checkout is required — official prebuilt
+  binaries are the update channel.
+- If the binary lives somewhere like `/usr/local/bin` that your user cannot
+  write to, the updater stops with clear guidance instead of escalating on its
+  own. Re-run with the appropriate permissions or reinstall into `~/.local/bin`.
+- Downgrades are refused: an installed version newer than the latest release is left alone.
+- Offline or GitHub unreachable? The command fails cleanly; your installed
+  binary stays exactly as it was.
+
+Use `-o json` for machine-readable output.
+
+---
+
 ## Verify (one command)
 
 Run every check — lint, static analysis, race-detector tests, and a build —

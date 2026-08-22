@@ -173,6 +173,7 @@ func init() {
 	rootCmd.Flags().Bool("version", false, "Print version information and exit")
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(scanCmd)
+	rootCmd.AddCommand(updatesCmd)
 	rootCmd.AddCommand(newCompletionCmd())
 	rootCmd.AddCommand(newExploitCmd())
 }
