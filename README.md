@@ -253,7 +253,7 @@ sha256sum -c <(curl -fsSL https://github.com/QYVORA/qyvora-anansi/releases/lates
 
 ### Option 3 — Build from source (automated)
 
-**Requirements:** Go 1.22+ and active internet connection.
+**Requirements:** Go 1.26+ (the version pinned by `go.mod`) and active internet connection.
 
 ```bash
 git clone https://github.com/QYVORA/qyvora-anansi qyvora-anansi-cli

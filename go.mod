@@ -1,6 +1,6 @@
 module github.com/QYVORA/qyvora-anansi-cli
 
-go 1.22.0
+go 1.26.5
 
 require (
 	github.com/chzyer/readline v1.5.1
