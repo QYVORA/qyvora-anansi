@@ -472,37 +472,31 @@ Console commands:
 
 <div align="center">
   <pre style="background: #0d0d0d; border: 1px solid rgba(102, 184, 112, 0.18); border-radius: 8px; padding: 1rem 1.5rem; display: inline-block; text-align: left; color: #EEF0EE; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; line-height: 1.5;">
-  <span style="color: #66B870;">┌─────────────────────────────────────────────────────────┐</span>
-  <span style="color: #66B870;">│</span>  ANANSI  Attack Surface Intelligence Engine             <span style="color: #66B870;">│</span>
-  <span style="color: #66B870;">│</span>  TARGET  target.com                                     <span style="color: #66B870;">│</span>
-  <span style="color: #66B870;">│</span>  TIME    2025-06-01 14:22:01 UTC                        <span style="color: #66B870;">│</span>
-  <span style="color: #66B870;">│</span>  BY      QYVORA OffSec // qyvora.netlify.app            <span style="color: #66B870;">│</span>
-  <span style="color: #66B870;">└─────────────────────────────────────────────────────────┘</span>
+  <span style="color: #66B870;">[ANANSI attack-surface spider art]</span>
+  Attack Surface Intelligence Engine — QYVORA // qyvora.netlify.app
+  Built in Go
 
-  <span style="color: #66B870;">══ PHASE 01 ── DISCOVERY</span> <span style="color: rgba(238, 240, 238, 0.40);">// subdomain enumeration + DNS resolution</span>
-  <span style="color: rgba(238, 240, 238, 0.40);">────────────────────────────────────────────────────────────────</span>
+  <span style="color: #66B870;">[+] PHASE 01: DISCOVERY</span>   subdomain enumeration + DNS resolution
   sources: crt.sh=12  wordlist=3  san=2
 
-  api.target.com              104.21.44.12    crt.sh    <span style="color: #66B870;">LIVE</span>
-  dev.target.com              104.21.44.13    crt.sh    <span style="color: #66B870;">LIVE</span>
-  old.target.com              —               wordlist  DEAD
-                              CNAME → target.herokuapp.com
+  api.target.com    104.21.44.12   crt.sh    <span style="color: #66B870;">LIVE</span>
+  dev.target.com    104.21.44.13   crt.sh    <span style="color: #66B870;">LIVE</span>
+  old.target.com    —              wordlist  DEAD
+                     CNAME → target.herokuapp.com
 
-  <span style="color: #66B870;">══ PHASE 05 ── PATHS</span> <span style="color: rgba(238, 240, 238, 0.40);">// exposed endpoint + file detection</span>
-  <span style="color: rgba(238, 240, 238, 0.40);">────────────────────────────────────────────────────────────────</span>
+  <span style="color: #66B870;">[+] PHASE 05: PATHS</span>   exposed endpoint + file detection
 
   [CRITICAL] Exposed .env File
   ASSET:     https://api.target.com/.env
   FIX:       Restrict or remove /.env from public access.
 
-  <span style="color: #66B870;">══ PHASE 06 ── TAKEOVER</span> <span style="color: rgba(238, 240, 238, 0.40);">// dangling CNAME detection</span>
-  <span style="color: rgba(238, 240, 238, 0.40);">────────────────────────────────────────────────────────────────</span>
+  <span style="color: #66B870;">[+] PHASE 07: TAKEOVER</span>   dangling CNAME detection
 
   [CRITICAL] Subdomain Takeover — Heroku
   ASSET:     old.target.com
   FIX:       Remove the dangling CNAME or claim the Heroku resource.
 
-  <span style="color: #66B870;">══ SUMMARY</span> <span style="color: rgba(238, 240, 238, 0.40);">──────────────────────────────────────────────────────</span>
+  <span style="color: #66B870;">SUMMARY</span>
   target      target.com
   duration    1m43s
   subdomains  17 discovered, 11 live

@@ -11,7 +11,7 @@ import (
 	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
 )
 
-// sectionWidth is the fixed visible width of every console section rule.
+// sectionWidth is the default layout width used by the console HUD.
 const sectionWidth = 60
 
 // console palette — green accent matches the ANANSI scan terminal output;
@@ -63,26 +63,21 @@ func (u *consoleUI) paintf(c *color.Color, format string, args ...any) string {
 	return c.Sprintf(format, args...)
 }
 
-// Section prints a fixed-width horizontal rule carrying the title, e.g.
-// "──────────────────────── Core Commands ─────────────────────────".
+// Section prints a clean section header. The title is emphasized with the
+// accent color (uppercase) and whitespace rather than a horizontal rule, so
+// the console stays scannable without full-width separator lines.
 func (u *consoleUI) Section(title string) {
 	label := strings.TrimSpace(title)
 	if label == "" {
-		u.Rule()
+		fmt.Fprintln(u.w)
 		return
 	}
-	inner := sectionWidth - runeWidth(label) - 2
-	if inner < 2 {
-		inner = 2
-	}
-	left := inner / 2
-	right := inner - left
-	fmt.Fprintf(u.w, "\n%s\n", u.paint(cpDim, strings.Repeat("─", left)+" "+label+" "+strings.Repeat("─", right)))
+	fmt.Fprintf(u.w, "\n  %s\n", u.paintf(cpAccent, "%s", strings.ToUpper(label)))
 }
 
-// Rule prints a full-width dim rule.
+// Rule prints a soft section break — a blank line, never a rule line.
 func (u *consoleUI) Rule() {
-	fmt.Fprintln(u.w, u.paint(cpDim, strings.Repeat("─", sectionWidth)))
+	fmt.Fprintln(u.w)
 }
 
 // KV prints a "  key: value" pair with the key emphasized.
