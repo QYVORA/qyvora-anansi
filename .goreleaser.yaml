@@ -21,7 +21,7 @@ builds:
       - -trimpath
 
 archives:
-  - format: binary
+  - formats: [binary]
     name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
 
 checksum:
