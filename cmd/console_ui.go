@@ -80,9 +80,14 @@ func (u *consoleUI) Rule() {
 	fmt.Fprintln(u.w)
 }
 
-// KV prints a "  key: value" pair with the key emphasized.
+// kvLabelWidth is the fixed visible width used for "key: value" labels so the
+// values of consecutive KV lines always line up in a column.
+const kvLabelWidth = 22
+
+// KV prints a "  key: value" pair with the key emphasized and the value
+// aligned in a shared column, so consecutive KV blocks stay tidy.
 func (u *consoleUI) KV(key, value string) {
-	fmt.Fprintf(u.w, "  %s %s\n", u.paint(cpWhite, key+":"), u.paint(cpWhite, value))
+	fmt.Fprintf(u.w, "  %s %s\n", padTo(u.paint(cpWhite, key+":"), kvLabelWidth), u.paint(cpWhite, value))
 }
 
 // Glyph returns a colored "[x]" token for a status glyph character, matching
