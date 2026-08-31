@@ -13,7 +13,7 @@
 #  5. Verifies the install by printing the version
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/QYVORA/qyvora-anansi-cli/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/QYVORA/qyvora-anansi/main/install.sh | bash
 #   bash install.sh
 #
 # QYVORA OffSec
@@ -31,7 +31,7 @@ WHITE='\033[1;37m'
 DIM='\033[90m'
 NC='\033[0m'
 
-REPO="QYVORA/qyvora-anansi-cli"
+REPO="QYVORA/qyvora-anansi"
 BASE_URL="https://github.com/${REPO}/releases/latest/download"
 DEFAULT_BIN_DIR="${HOME}/.local/bin"
 
@@ -142,6 +142,29 @@ install_release() {
 
     chmod +x "$local_bin"
     INSTALL_BIN="$local_bin"
+
+    # Grab the branded icon alongside the binary so desktop integration ships
+    # a logo, not a bare command. Verified against checksums.txt when present.
+    if [ "$os" != "windows" ]; then
+        if curl -fsSL --connect-timeout 10 "${BASE_URL}/anansi.png" -o "${WORK_DIR}/anansi.png"; then
+            if [ -n "$hashtool" ] && [ -f "${WORK_DIR}/checksums.txt" ]; then
+                local cwant cgot
+                cwant=$(awk -v n="anansi.png" '$2 == n { print $1 }' "${WORK_DIR}/checksums.txt")
+                if [ -n "$cwant" ]; then
+                    cgot=$($hashtool "${WORK_DIR}/anansi.png" | awk '{ print $1 }')
+                    if [ "$cwant" = "$cgot" ]; then
+                        ok "SHA-256 verified for anansi.png"
+                    else
+                        warn "Icon checksum mismatch; desktop icon will be skipped."
+                        rm -f "${WORK_DIR}/anansi.png"
+                    fi
+                fi
+            fi
+        else
+            warn "Could not fetch anansi.png; desktop icon will be skipped."
+        fi
+    fi
+
     return 0
 }
 
@@ -152,6 +175,19 @@ install_from_source() {
     if ! command -v go >/dev/null 2>&1; then
         die "No prebuilt binary available and Go is not installed. Install Go 1.22+ from https://go.dev and re-run this script."
     fi
+
+    # Running inside a checkout of the repo? Build straight from the working
+    # tree so offline and pre-release installs need no network and no curl.
+    if [ -f "$PWD/go.mod" ]; then
+        info "Building from the local checkout ($PWD)..."
+        if CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "${WORK_DIR}/anansi-src" .; then
+            INSTALL_BIN="${WORK_DIR}/anansi-src"
+            return 0
+        else
+            warn "Local checkout build failed; trying the source tarball."
+        fi
+    fi
+
     if ! command -v curl >/dev/null 2>&1; then
         die "curl is required to fetch the source tarball."
     fi

@@ -41,10 +41,10 @@
 
   <br/>
 
-  <a href="https://github.com/QYVORA/qyvora-anansi-cli/releases">
-    <img src="https://img.shields.io/github/v/release/QYVORA/qyvora-anansi-cli?style=flat&label=Release&color=66B870" alt="Release"/>
+  <a href="https://github.com/QYVORA/qyvora-anansi/releases">
+    <img src="https://img.shields.io/github/v/release/QYVORA/qyvora-anansi?style=flat&label=Release&color=66B870" alt="Release"/>
   </a>
-  <a href="https://github.com/QYVORA/qyvora-anansi-cli/blob/main/LICENSE">
+  <a href="https://github.com/QYVORA/qyvora-anansi/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/License-MIT-66B870?style=flat" alt="License"/>
   </a>
   <a href="https://go.dev">
@@ -195,7 +195,7 @@ prebuilt binary, or falls back to building from source if you're offline. No use
 choices required.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/QYVORA/qyvora-anansi-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/QYVORA/qyvora-anansi/main/install.sh | bash
 ```
 
 The installer:
@@ -205,28 +205,42 @@ The installer:
 3. Falls back to building from source (needs Go) if the download is unavailable
 4. Installs to `~/.local/bin` (no sudo needed) and adds it to your shell config
 5. On Linux, installs the app icon + desktop entry so `anansi` appears with its logo in the app menu
-6. Confirms the install by printing the version
+6. On Windows (GitBash), installs to `~/bin`; use the PowerShell installer instead for the Start Menu shortcut + icon
+7. Confirms the install by printing the version
+
+### Option 1b — Windows (PowerShell, recommended)
+
+Installs the checksum-verified binary under `%LOCALAPPDATA%\Programs\anansi\bin`,
+adds it to your user PATH, installs the anansi start-menu icon, and creates a
+Start Menu shortcut so `anansi` appears with its logo in your app list:
+
+```powershell
+irm https://raw.githubusercontent.com/QYVORA/qyvora-anansi/main/install.ps1 | iex
+```
+
+You can pin `$env:ANANSI_VERSION` (e.g. `v1.0.0`) or `$env:ANANSI_PREFIX`
+(e.g. `D:\Tools`) to control the version or install location.
 
 ### Option 2 — Manual binary download (no Go required)
 
 ```bash
 # Linux x86_64
-curl -L https://github.com/QYVORA/qyvora-anansi-cli/releases/latest/download/anansi-linux-amd64 -o anansi
+curl -L https://github.com/QYVORA/qyvora-anansi/releases/latest/download/anansi-linux-amd64 -o anansi
 chmod +x anansi
 sudo mv anansi /usr/local/bin/
 
 # Linux arm64 (Raspberry Pi, etc.)
-curl -L https://github.com/QYVORA/qyvora-anansi-cli/releases/latest/download/anansi-linux-arm64 -o anansi
+curl -L https://github.com/QYVORA/qyvora-anansi/releases/latest/download/anansi-linux-arm64 -o anansi
 chmod +x anansi
 sudo mv anansi /usr/local/bin/
 
 # macOS (Apple Silicon)
-curl -L https://github.com/QYVORA/qyvora-anansi-cli/releases/latest/download/anansi-macos-arm64 -o anansi
+curl -L https://github.com/QYVORA/qyvora-anansi/releases/latest/download/anansi-macos-arm64 -o anansi
 chmod +x anansi
 sudo mv anansi /usr/local/bin/
 
 # macOS (Intel)
-curl -L https://github.com/QYVORA/qyvora-anansi-cli/releases/latest/download/anansi-macos-amd64 -o anansi
+curl -L https://github.com/QYVORA/qyvora-anansi/releases/latest/download/anansi-macos-amd64 -o anansi
 chmod +x anansi
 sudo mv anansi /usr/local/bin/
 ```
@@ -234,7 +248,7 @@ sudo mv anansi /usr/local/bin/
 Verify the download's integrity against the published checksums:
 
 ```bash
-sha256sum -c <(curl -fsSL https://github.com/QYVORA/qyvora-anansi-cli/releases/latest/download/checksums.txt) --ignore-missing
+sha256sum -c <(curl -fsSL https://github.com/QYVORA/qyvora-anansi/releases/latest/download/checksums.txt) --ignore-missing
 ```
 
 ### Option 3 — Build from source (automated)
@@ -242,7 +256,7 @@ sha256sum -c <(curl -fsSL https://github.com/QYVORA/qyvora-anansi-cli/releases/l
 **Requirements:** Go 1.22+ and active internet connection.
 
 ```bash
-git clone https://github.com/QYVORA/qyvora-anansi-cli
+git clone https://github.com/QYVORA/qyvora-anansi qyvora-anansi-cli
 cd qyvora-anansi-cli
 ./install.sh
 ```
@@ -275,7 +289,7 @@ The command:
 
 1. Reads the installed version — the same value `anansi version` reports.
 2. Queries the official QYVORA GitHub releases
-   (`github.com/QYVORA/qyvora-anansi-cli/releases`); no other source is ever contacted.
+   (`github.com/QYVORA/qyvora-anansi/releases`); no other source is ever contacted.
 3. Compares versions semantically (`v1.10.0 > v1.9.0`) and reports whether an update exists.
 4. Downloads the release artifact built for your OS and CPU architecture
    (`anansi-linux-amd64`, `anansi-macos-arm64`, `anansi-windows-amd64.exe`, …).

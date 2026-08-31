@@ -31,7 +31,7 @@ checksum:
 release:
   github:
     owner: QYVORA
-    name: qyvora-anansi-cli
+    name: qyvora-anansi
   prerelease: auto
 
 changelog:

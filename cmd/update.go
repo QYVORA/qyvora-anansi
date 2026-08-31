@@ -16,11 +16,11 @@ import (
 )
 
 // releaseConfig pins the updater to ANANSI's official release source: the
-// QYVORA/qyvora-anansi-cli GitHub repository and nothing else.
+// QYVORA/qyvora-anansi GitHub repository and nothing else.
 func releaseConfig() selfupdate.Config {
 	return selfupdate.Config{
 		Owner:          "QYVORA",
-		Repo:           "qyvora-anansi-cli",
+		Repo:           "qyvora-anansi",
 		ToolName:       "Anansi",
 		CurrentVersion: func() string { return Version },
 		ArtifactName: func(goos, goarch string) string {

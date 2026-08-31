@@ -73,6 +73,14 @@ jobs:
           path: ./binaries
           merge-multiple: true
 
+      - uses: actions/checkout@v6
+
+      - name: Add branding icons
+        run: |
+          cd ./binaries
+          cp "${{ github.workspace }}/assets/anansi.png" anansi.png
+          cp "${{ github.workspace }}/assets/anansi.ico" anansi.ico
+
       - name: Generate checksums.txt
         run: |
           cd ./binaries
