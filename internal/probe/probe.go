@@ -13,9 +13,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/QYVORA/qyvora-anansi-cli/internal/assets"
-	"github.com/QYVORA/qyvora-anansi-cli/internal/httpclient"
-	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
+	"github.com/QYVORA/qyvora-anansi/internal/assets"
+	"github.com/QYVORA/qyvora-anansi/internal/httpclient"
+	"github.com/QYVORA/qyvora-anansi/internal/output"
 )
 
 var (

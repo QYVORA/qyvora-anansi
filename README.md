@@ -256,8 +256,8 @@ sha256sum -c <(curl -fsSL https://github.com/QYVORA/qyvora-anansi/releases/lates
 **Requirements:** Go 1.26+ (the version pinned by `go.mod`) and active internet connection.
 
 ```bash
-git clone https://github.com/QYVORA/qyvora-anansi qyvora-anansi-cli
-cd qyvora-anansi-cli
+git clone https://github.com/QYVORA/qyvora-anansi qyvora-anansi
+cd qyvora-anansi
 ./install.sh
 ```
 

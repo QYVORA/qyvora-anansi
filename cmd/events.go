@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/QYVORA/qyvora-anansi-cli/internal/events"
+	"github.com/QYVORA/qyvora-anansi/internal/events"
 )
 
 // flagEvents is bound to --events by root.go's init.

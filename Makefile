@@ -1,6 +1,6 @@
 BINARY := anansi
 VERSION ?= dev
-GOFLAGS := -ldflags="-s -w -X github.com/QYVORA/qyvora-anansi-cli/cmd.Version=$(VERSION)" -trimpath
+GOFLAGS := -ldflags="-s -w -X github.com/QYVORA/qyvora-anansi/cmd.Version=$(VERSION)" -trimpath
 GOFLAGS_RACE := $(GOFLAGS) -race
 
 PREFIX ?= /usr/local

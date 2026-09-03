@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/QYVORA/qyvora-anansi-cli/internal/httpclient"
-	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
+	"github.com/QYVORA/qyvora-anansi/internal/httpclient"
+	"github.com/QYVORA/qyvora-anansi/internal/output"
 )
 
 // TestAuditMissingSecurityHeaders flags every absent hardening header.

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
+	"github.com/QYVORA/qyvora-anansi/internal/output"
 )
 
 var (

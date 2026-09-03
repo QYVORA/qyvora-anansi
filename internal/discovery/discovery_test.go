@@ -3,7 +3,7 @@ package discovery
 import (
 	"testing"
 
-	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
+	"github.com/QYVORA/qyvora-anansi/internal/output"
 )
 
 func TestMutateSubdomains(t *testing.T) {

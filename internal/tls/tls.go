@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/QYVORA/qyvora-anansi-cli/internal/dnscache"
-	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
+	"github.com/QYVORA/qyvora-anansi/internal/dnscache"
+	"github.com/QYVORA/qyvora-anansi/internal/output"
 )
 
 // resolver caches SAN hostname lookups so subdomains discovered from TLS

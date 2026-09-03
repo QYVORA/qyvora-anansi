@@ -12,7 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/QYVORA/qyvora-anansi-cli/internal/selfupdate"
+	"github.com/QYVORA/qyvora-anansi/internal/selfupdate"
 )
 
 // releaseConfig pins the updater to ANANSI's official release source: the

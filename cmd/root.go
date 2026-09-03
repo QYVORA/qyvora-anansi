@@ -14,17 +14,17 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/QYVORA/qyvora-anansi-cli/internal/chain"
-	"github.com/QYVORA/qyvora-anansi-cli/internal/discovery"
-	"github.com/QYVORA/qyvora-anansi-cli/internal/events"
-	"github.com/QYVORA/qyvora-anansi-cli/internal/headers"
-	"github.com/QYVORA/qyvora-anansi-cli/internal/osint"
-	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
-	"github.com/QYVORA/qyvora-anansi-cli/internal/paths"
-	"github.com/QYVORA/qyvora-anansi-cli/internal/probe"
-	"github.com/QYVORA/qyvora-anansi-cli/internal/takeover"
-	"github.com/QYVORA/qyvora-anansi-cli/internal/techstack"
-	"github.com/QYVORA/qyvora-anansi-cli/internal/tls"
+	"github.com/QYVORA/qyvora-anansi/internal/chain"
+	"github.com/QYVORA/qyvora-anansi/internal/discovery"
+	"github.com/QYVORA/qyvora-anansi/internal/events"
+	"github.com/QYVORA/qyvora-anansi/internal/headers"
+	"github.com/QYVORA/qyvora-anansi/internal/osint"
+	"github.com/QYVORA/qyvora-anansi/internal/output"
+	"github.com/QYVORA/qyvora-anansi/internal/paths"
+	"github.com/QYVORA/qyvora-anansi/internal/probe"
+	"github.com/QYVORA/qyvora-anansi/internal/takeover"
+	"github.com/QYVORA/qyvora-anansi/internal/techstack"
+	"github.com/QYVORA/qyvora-anansi/internal/tls"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
@@ -50,7 +50,7 @@ var (
 
 // Version is stamped at build time via:
 //
-//	-ldflags "-X github.com/QYVORA/qyvora-anansi-cli/cmd.Version=<version>"
+//	-ldflags "-X github.com/QYVORA/qyvora-anansi/cmd.Version=<version>"
 //
 // It defaults to "dev" for local builds.
 var Version = "dev"

@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
+	"github.com/QYVORA/qyvora-anansi/internal/output"
 )
 
 func TestDetectTech(t *testing.T) {

@@ -66,7 +66,7 @@
   OS/arch/shell, downloads the checksum-verified prebuilt binary
   (SHA-256 vs published `checksums.txt`), falls back to a source build,
   installs to `~/.local/bin`, and configures PATH in bash/zsh/fish
-- One-liner install: `curl -fsSL https://raw.githubusercontent.com/QYVORA/qyvora-anansi-cli/main/install.sh | bash`
+- One-liner install: `curl -fsSL https://raw.githubusercontent.com/QYVORA/qyvora-anansi/main/install.sh | bash`
 - `anansi version` subcommand + `anansi --version` flag, stamped via ldflags
   (`cmd.Version`); the installer verifies a genuine binary with `anansi version`
 - `make verify` — one command running lint + vet + race tests + build

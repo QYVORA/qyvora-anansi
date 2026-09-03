@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/QYVORA/qyvora-anansi-cli/internal/exploit"
+	"github.com/QYVORA/qyvora-anansi/internal/exploit"
 	"github.com/chzyer/readline"
 	"github.com/mattn/go-isatty"
 )

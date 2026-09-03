@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/QYVORA/qyvora-anansi-cli/internal/validation"
+	"github.com/QYVORA/qyvora-anansi/internal/validation"
 )
 
 // Severity levels used to classify findings across all scan modules.

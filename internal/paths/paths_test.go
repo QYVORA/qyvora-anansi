@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/QYVORA/qyvora-anansi-cli/internal/httpclient"
+	"github.com/QYVORA/qyvora-anansi/internal/httpclient"
 )
 
 func TestLoadRules(t *testing.T) {

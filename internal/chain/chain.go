@@ -12,8 +12,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/QYVORA/qyvora-anansi-cli/internal/assets"
-	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
+	"github.com/QYVORA/qyvora-anansi/internal/assets"
+	"github.com/QYVORA/qyvora-anansi/internal/output"
 )
 
 // vulnClass describes one of the recognised vulnerability classes.  Keywords

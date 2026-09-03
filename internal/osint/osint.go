@@ -5,8 +5,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/QYVORA/qyvora-anansi-cli/internal/httpclient"
-	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
+	"github.com/QYVORA/qyvora-anansi/internal/httpclient"
+	"github.com/QYVORA/qyvora-anansi/internal/output"
 )
 
 func Run(out *output.Renderer, probeResults []output.ProbeResult, target string, timeout int, threads int, _ int, stealth bool) []output.OSINTResult {

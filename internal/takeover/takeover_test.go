@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
+	"github.com/QYVORA/qyvora-anansi/internal/output"
 )
 
 // dialAll returns an http.Client whose transport routes every address to the

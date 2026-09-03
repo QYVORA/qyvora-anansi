@@ -1,4 +1,4 @@
-module github.com/QYVORA/qyvora-anansi-cli
+module github.com/QYVORA/qyvora-anansi
 
 go 1.26.5
 

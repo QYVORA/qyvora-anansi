@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/QYVORA/qyvora-anansi-cli/internal/httpclient"
-	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
-	"github.com/QYVORA/qyvora-anansi-cli/internal/validation"
+	"github.com/QYVORA/qyvora-anansi/internal/httpclient"
+	"github.com/QYVORA/qyvora-anansi/internal/output"
+	"github.com/QYVORA/qyvora-anansi/internal/validation"
 )
 
 func TestDetectStacks(t *testing.T) {

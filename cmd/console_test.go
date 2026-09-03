@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/QYVORA/qyvora-anansi-cli/internal/output"
+	"github.com/QYVORA/qyvora-anansi/internal/output"
 )
 
 func newTestSession() (*consoleSession, *bytes.Buffer) {
