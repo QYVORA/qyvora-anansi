@@ -53,13 +53,13 @@ func extractFromTarGz(archivePath, entryName, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close() //nolint:errcheck // read-only handle
+	defer func() { _ = f.Close() }()
 
 	gz, err := gzip.NewReader(f)
 	if err != nil {
 		return fmt.Errorf("release artifact is not valid gzip: %w", err)
 	}
-	defer gz.Close() //nolint:errcheck // read-only stream
+	defer func() { _ = gz.Close() }()
 
 	tr := tar.NewReader(gz)
 	for {
@@ -73,7 +73,7 @@ func extractFromTarGz(archivePath, entryName, dest string) error {
 		if normalizeEntryName(hdr.Name) != entryName {
 			continue
 		}
-		if hdr.Typeflag != tar.TypeReg && hdr.Typeflag != tar.TypeRegA { //nolint:staticcheck // TypeRegA covers legacy writers
+		if hdr.Typeflag != tar.TypeReg {
 			return fmt.Errorf("archive entry %q is not a regular file", entryName)
 		}
 		return copyLimited(tr, dest, maxArtifactSize, entryName)
@@ -98,7 +98,7 @@ func extractFromZip(archivePath, entryName, dest string) error {
 	if err != nil {
 		return fmt.Errorf("release artifact is not a valid zip: %w", err)
 	}
-	defer zr.Close() //nolint:errcheck // read-only handle
+	defer func() { _ = zr.Close() }()
 
 	for _, zf := range zr.File {
 		if normalizeEntryName(zf.Name) != entryName {
