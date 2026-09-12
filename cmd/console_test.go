@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/QYVORA/qyvora-anansi/internal/output"
+	"github.com/QYVORA/qyvora-anansi/internal/version"
 )
 
 func newTestSession() (*consoleSession, *bytes.Buffer) {
@@ -254,9 +255,9 @@ func TestConsoleScanRequiresTarget(t *testing.T) {
 }
 
 func TestConsoleVersion(t *testing.T) {
-	old := Version
-	Version = "console-9.9.9"
-	defer func() { Version = old }()
+	old := version.Version
+	version.Version = "console-9.9.9"
+	defer func() { version.Version = old }()
 
 	s, buf := newTestSession()
 	if _, err := s.handleLine("version"); err != nil {

@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/QYVORA/qyvora-anansi/internal/output"
+	"github.com/QYVORA/qyvora-anansi/internal/version"
 )
 
 func TestHasModule(t *testing.T) {
@@ -48,9 +49,9 @@ func TestDedupeFindings(t *testing.T) {
 }
 
 func TestVersionFlagPrintsVersion(t *testing.T) {
-	old := Version
-	Version = "test-1.2.3"
-	defer func() { Version = old }()
+	old := version.Version
+	version.Version = "test-1.2.3"
+	defer func() { version.Version = old }()
 
 	var buf bytes.Buffer
 	rootCmd.SetOut(&buf)
@@ -64,9 +65,9 @@ func TestVersionFlagPrintsVersion(t *testing.T) {
 }
 
 func TestVersionSubcommandPrintsVersion(t *testing.T) {
-	old := Version
-	Version = "v9.9.9-rc1"
-	defer func() { Version = old }()
+	old := version.Version
+	version.Version = "v9.9.9-rc1"
+	defer func() { version.Version = old }()
 
 	var buf bytes.Buffer
 	rootCmd.SetOut(&buf)
@@ -74,8 +75,11 @@ func TestVersionSubcommandPrintsVersion(t *testing.T) {
 	if err := rootCmd.Execute(); err != nil {
 		t.Fatalf("Execute version subcommand: %v", err)
 	}
-	if got := buf.String(); got != "v9.9.9-rc1\n" {
-		t.Errorf("version subcommand printed %q, want %q", got, "v9.9.9-rc1\n")
+	if got := buf.String(); !strings.Contains(got, "anansi v9.9.9-rc1\n") {
+		t.Errorf("version subcommand printed %q, want to contain %q", got, "anansi v9.9.9-rc1\n")
+	}
+	if got := buf.String(); !strings.Contains(got, "support:    qyvorasec@gmail.com") {
+		t.Errorf("version subcommand printed %q, want contact details", got)
 	}
 }
 
@@ -83,9 +87,9 @@ func TestVersionSubcommandPrintsVersion(t *testing.T) {
 // `-o json` on the version verb emits a machine-readable object, and an
 // unsupported format is rejected as a usage error.
 func TestVersionSubcommandJSONOutput(t *testing.T) {
-	old := Version
-	Version = "v9.9.9-rc1"
-	defer func() { Version = old }()
+	old := version.Version
+	version.Version = "v9.9.9-rc1"
+	defer func() { version.Version = old }()
 
 	var buf bytes.Buffer
 	rootCmd.SetOut(&buf)

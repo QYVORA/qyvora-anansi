@@ -9,6 +9,7 @@ import (
 	"github.com/fatih/color"
 
 	"github.com/QYVORA/qyvora-anansi/internal/output"
+	"github.com/QYVORA/qyvora-anansi/internal/version"
 )
 
 // sectionWidth is the default layout width used by the console HUD.
@@ -163,7 +164,7 @@ func (u *consoleUI) Banner() {
 
 // BannerFoot prints the version footer and a help hint under the banner.
 func (u *consoleUI) BannerFoot() {
-	u.Status(">", "v %s", Version)
+	u.Status(">", "v %s", version.Version)
 	fmt.Fprintln(u.w, u.paint(cpDim, "type 'help' for the command list, 'options' to view scan options."))
 	fmt.Fprintln(u.w)
 }
@@ -191,7 +192,7 @@ func (u *consoleUI) HUD(s *consoleSession) {
 		cwd = "?"
 	}
 	left := kv("rhosts", rhosts) + u.paintf(cpDim, "  ·  ") + kv("module", module) + u.paintf(cpDim, "  ·  ") + kv("cwd", cwd)
-	right := u.paintf(cpAccent, "v %s", Version)
+	right := u.paintf(cpAccent, "v %s", version.Version)
 
 	cols := u.width
 	if cols < 20 {

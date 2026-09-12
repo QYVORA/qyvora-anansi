@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/QYVORA/qyvora-anansi/internal/exploit"
+	"github.com/QYVORA/qyvora-anansi/internal/version"
 	"github.com/chzyer/readline"
 	"github.com/mattn/go-isatty"
 )
@@ -309,7 +310,7 @@ func (s *consoleSession) handleLine(line string) (bool, error) {
 	case "banner":
 		s.ui.Banner()
 	case "version":
-		s.ui.Status(">", "v %s", Version)
+		s.ui.Status(">", "v %s", version.Version)
 	case "history":
 		for i, h := range s.history {
 			fmt.Fprintf(s.out, "%4d  %s\n", i+1, h)

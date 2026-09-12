@@ -560,6 +560,13 @@ Only scan targets you own or have explicit written authorization to test. Unauth
 
 ---
 
+## Contact
+
+QYVORA OffSec — Tamale, Ghana
+Website: https://qyvora.netlify.app · Security/Support: qyvorasec@gmail.com
+
+---
+
 ## License
 
 MIT — fork it, extend it, integrate it. Attribution appreciated.

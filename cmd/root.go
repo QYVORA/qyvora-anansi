@@ -25,6 +25,7 @@ import (
 	"github.com/QYVORA/qyvora-anansi/internal/takeover"
 	"github.com/QYVORA/qyvora-anansi/internal/techstack"
 	"github.com/QYVORA/qyvora-anansi/internal/tls"
+	"github.com/QYVORA/qyvora-anansi/internal/version"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
@@ -48,13 +49,6 @@ var (
 	flagExploitSel string
 )
 
-// Version is stamped at build time via:
-//
-//	-ldflags "-X github.com/QYVORA/qyvora-anansi/cmd.Version=<version>"
-//
-// It defaults to "dev" for local builds.
-var Version = "dev"
-
 // versionCmd prints the build version.  The installer and CI use it to
 // verify a genuine binary is on the system. It honors the shared QYVORA
 // output contract: `-o/--output json` emits a machine-readable object.
@@ -63,11 +57,9 @@ var versionCmd = &cobra.Command{
 	Short: "Print the ANANSI CLI version",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
+		info := version.GetInfo()
 		if strings.EqualFold(flagOut, "json") {
-			data, err := json.Marshal(map[string]string{
-				"framework": "anansi",
-				"version":   Version,
-			})
+			data, err := json.Marshal(info)
 			if err != nil {
 				return err
 			}
@@ -77,7 +69,15 @@ var versionCmd = &cobra.Command{
 		if !strings.EqualFold(flagOut, "terminal") {
 			return &usageError{fmt.Errorf("invalid output format %q for version (terminal, json)", flagOut)}
 		}
-		cmd.Println(Version)
+		cmd.Printf("anansi %s\n", info.Version)
+		cmd.Printf("  framework:  %s\n", info.Framework)
+		cmd.Printf("  commit:     %s\n", info.Commit)
+		cmd.Printf("  built:      %s\n", info.Date)
+		cmd.Printf("  by:         %s\n", info.BuildUser)
+		cmd.Printf("  go:         %s %s/%s\n", info.GoVersion, info.OS, info.Arch)
+		cmd.Printf("  website:    %s\n", info.Website)
+		cmd.Printf("  support:    %s\n", info.Support)
+		cmd.Printf("  built in:   %s\n", info.BuiltIn)
 		return nil
 	},
 }
@@ -239,7 +239,7 @@ func dedupeFindings(findings []output.Finding) []output.Finding {
 // the target and runs the enabled modules.
 func runScan(cmd *cobra.Command, args []string) error {
 	if showVersion, _ := cmd.Flags().GetBool("version"); showVersion {
-		cmd.Println(Version)
+		cmd.Println(version.Version)
 		return nil
 	}
 	if len(args) == 0 {
@@ -308,7 +308,7 @@ func runScanTarget(args []string, console bool) error {
 
 	emit(events.LevelInfo, events.ScanStarted, map[string]any{
 		"target":  target,
-		"version": Version,
+		"version": version.Version,
 		"modules": flagModules,
 		"stealth": flagStealth,
 	})

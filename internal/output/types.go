@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/QYVORA/qyvora-anansi/internal/validation"
+	"github.com/QYVORA/qyvora-anansi/internal/version"
 )
 
 // Severity levels used to classify findings across all scan modules.
@@ -38,13 +39,16 @@ const (
 )
 
 // CompanyName is the organisation behind this tool.
-const CompanyName = "QYVORA OffSec"
+const CompanyName = version.CompanyName
 
 // CompanyURL is the Netlify-hosted landing page (no custom domain yet).
-const CompanyURL = "https://qyvora.netlify.app"
+const CompanyURL = version.CompanyURL
+
+// CompanyEmail is the public security contact for the QYVORA organisation.
+const CompanyEmail = version.CompanyEmail
 
 // BuiltIn is the origin location of this project.
-const BuiltIn = "Tamale, Ghana"
+const BuiltIn = version.CompanyCity
 
 // ValidationState is re-exported from the validation package for convenience.
 // It describes the confidence level of a finding based on response validation.

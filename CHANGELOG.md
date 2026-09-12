@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Changed (version system & contact)
+- **Unified version system** — build identity moved from `cmd.Version` to a
+  canonical `internal/version` package (framework, version, commit, date,
+  build user, Go version/arch/os) stamped via `-ldflags`; the Makefile,
+  release workflow, and goreleaser now target the new path.
+- **Contact details** — `anansi version` and the company constants in
+  `internal/output` (mirroring `internal/version`) surface official QYVORA
+  contact: https://qyvora.netlify.app · qyvorasec@gmail.com · Tamale, Ghana.
+
 ### Added (interactive console milestone)
 - Running `anansi` with no arguments now enters an interactive
   Metasploit-style console with its own `anansi >` prompt (module context is

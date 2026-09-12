@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/QYVORA/qyvora-anansi/internal/selfupdate"
+	"github.com/QYVORA/qyvora-anansi/internal/version"
 )
 
 // releaseConfig pins the updater to ANANSI's official release source: the
@@ -22,7 +23,7 @@ func releaseConfig() selfupdate.Config {
 		Owner:          "QYVORA",
 		Repo:           "qyvora-anansi",
 		ToolName:       "Anansi",
-		CurrentVersion: func() string { return Version },
+		CurrentVersion: func() string { return version.Version },
 		ArtifactName: func(goos, goarch string) string {
 			// The release pipeline names darwin assets with "macos".
 			os := goos
