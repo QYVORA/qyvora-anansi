@@ -295,6 +295,25 @@ func runScanTarget(args []string, console bool) error {
 	if closeStream != nil {
 		defer closeStream()
 	}
+	if flagEvents == "stdout" {
+		// stdout carries exactly one machine stream. With the event JSONL
+		// stream owning stdout, a machine report format cannot share it
+		// (use --events stderr or --events <file>), and human/report output
+		// routes to stderr so stdout stays pure JSONL. Renderers print via
+		// fmt/os.Stdout directly, so both the os.Stdout handle and the
+		// fatih/color global Output are redirected.
+		if !strings.EqualFold(flagOut, "terminal") {
+			return &usageError{fmt.Errorf("cannot combine --events stdout with report format -o %s; use --events stderr or --events <file>", flagOut)}
+		}
+		restoreStdout := os.Stdout
+		os.Stdout = os.Stderr
+		restoreColor := color.Output
+		color.Output = os.Stderr
+		defer func() {
+			os.Stdout = restoreStdout
+			color.Output = restoreColor
+		}()
+	}
 	emit := func(level, name string, data map[string]any) {
 		if emitter != nil {
 			emitter.Emit("anansi", level, name, data)

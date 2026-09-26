@@ -77,46 +77,46 @@ const (
 // DISCOVERY ≠ VALIDATED FINDING. A raw HTTP 200 is not sufficient to
 // confirm a resource exists.
 type Finding struct {
-	Severity      string
-	Confidence    string
-	Title         string
-	AffectedAsset string
-	Description   string
-	Evidence      string
-	Remediation   string
-	ID            string
-	Status        string
+	Severity      string `json:"severity"`
+	Confidence    string `json:"confidence"`
+	Title         string `json:"title"`
+	AffectedAsset string `json:"affected_asset"`
+	Description   string `json:"description,omitempty"`
+	Evidence      string `json:"evidence,omitempty"`
+	Remediation   string `json:"remediation,omitempty"`
+	ID            string `json:"id,omitempty"`
+	Status        string `json:"status,omitempty"`
 
 	// Validation fields — the detection-quality pipeline
-	ValidationState ValidationState
-	FinalURL        string   // URL after redirects, if different from AffectedAsset
-	OriginalStatus  int      // HTTP status before redirect chain
-	FinalStatus     int      // HTTP status after redirect chain
-	RedirectChain   []string // Human-readable redirect hops
+	ValidationState ValidationState `json:"validation_state,omitempty"`
+	FinalURL        string          `json:"final_url,omitempty"`       // URL after redirects, if different from AffectedAsset
+	OriginalStatus  int             `json:"original_status,omitempty"` // HTTP status before redirect chain
+	FinalStatus     int             `json:"final_status,omitempty"`    // HTTP status after redirect chain
+	RedirectChain   []string        `json:"redirect_chain,omitempty"`  // Human-readable redirect hops
 }
 
 // OSINTResult holds a single piece of open-source intelligence discovered
 // about the target organisation: emails, phone numbers, employee names,
 // social media handles, or organisational metadata.
 type OSINTResult struct {
-	Category string // "email", "phone", "employee", "org"
-	Value    string
-	Source   string // e.g. WHOIS, page URL, certificate
-	Context  string // surrounding text or label
+	Category string `json:"category"` // "email", "phone", "employee", "org"
+	Value    string `json:"value"`
+	Source   string `json:"source"`  // e.g. WHOIS, page URL, certificate
+	Context  string `json:"context"` // surrounding text or label
 }
 
 // ChainStep is one vulnerability class inside an exploit chain.  It records
 // which real finding triggered the step (title, severity, asset) and the
 // exploitation technique recommended for that class.
 type ChainStep struct {
-	Order           int    // 1-based position in the chain
-	Class           string // vulnerability class name, e.g. "SQL Injection"
-	ClassID         string // short class identifier, e.g. "sql-injection"
-	Severity        string // severity of the step (worst matching finding)
-	FindingTitle    string // title of the finding that triggered this step
-	FindingSeverity string
-	AffectedAsset   string
-	Technique       string // exploitation technique for this class
+	Order           int    `json:"order"`         // 1-based position in the chain
+	Class           string `json:"class"`         // vulnerability class name, e.g. "SQL Injection"
+	ClassID         string `json:"class_id"`      // short class identifier, e.g. "sql-injection"
+	Severity        string `json:"severity"`      // severity of the step (worst matching finding)
+	FindingTitle    string `json:"finding_title"` // title of the finding that triggered this step
+	FindingSeverity string `json:"finding_severity"`
+	AffectedAsset   string `json:"affected_asset"`
+	Technique       string `json:"technique"` // exploitation technique for this class
 }
 
 // ExploitChain is an ordered sequence of vulnerability classes that, taken
@@ -124,12 +124,12 @@ type ChainStep struct {
 // full compromise.  Chains are assembled from the scan's real findings and
 // ranked by severity, length, and score.
 type ExploitChain struct {
-	ID       string // stable identifier: "chain-<n>"
-	Name     string // narrative name, e.g. "Full Compromise"
-	Summary  string // human-readable description of the kill path
-	Severity string // worst step severity in the chain
-	Score    int    // ranking score
-	Steps    []ChainStep
+	ID       string      `json:"id"`       // stable identifier: "chain-<n>"
+	Name     string      `json:"name"`     // narrative name, e.g. "Full Compromise"
+	Summary  string      `json:"summary"`  // human-readable description of the kill path
+	Severity string      `json:"severity"` // worst step severity in the chain
+	Score    int         `json:"score"`    // ranking score
+	Steps    []ChainStep `json:"steps"`
 }
 
 // ExploitResult is the machine-readable outcome of one PoC/exploitation run
@@ -137,97 +137,97 @@ type ExploitChain struct {
 // shape without importing it, keeping the output package free of package
 // cycles. Evidence is stored as a list of non-sensitive summaries.
 type ExploitResult struct {
-	ExploitID     string
-	ModuleID      string
-	ModuleName    string
-	Target        string
-	FindingID     string
-	FindingTitle  string
-	Vulnerability string
-	Status        string
-	Risk          string
-	DryRun        bool
-	StartedAt     time.Time
-	CompletedAt   time.Time
-	Evidence      []string
-	Error         string
-	CleanupStatus string
+	ExploitID     string    `json:"exploit_id,omitempty"`
+	ModuleID      string    `json:"module_id,omitempty"`
+	ModuleName    string    `json:"module_name,omitempty"`
+	Target        string    `json:"target"`
+	FindingID     string    `json:"finding_id,omitempty"`
+	FindingTitle  string    `json:"finding_title,omitempty"`
+	Vulnerability string    `json:"vulnerability,omitempty"`
+	Status        string    `json:"status"`
+	Risk          string    `json:"risk"`
+	DryRun        bool      `json:"dry_run"`
+	StartedAt     time.Time `json:"started_at"`
+	CompletedAt   time.Time `json:"completed_at"`
+	Evidence      []string  `json:"evidence,omitempty"`
+	Error         string    `json:"error,omitempty"`
+	CleanupStatus string    `json:"cleanup_status,omitempty"`
 }
 
 // Report is the full scan result object. It is populated incrementally by each
 // scan phase and rendered at the end in the chosen output format.
 type Report struct {
-	Target         string
-	StartedAt      time.Time
-	Duration       time.Duration
-	Subdomains     []SubdomainResult
-	ProbeResults   []ProbeResult
-	TLSResults     []TLSResult
-	HeaderResults  []HeaderResult
-	Findings       []Finding
-	OSINTResults   []OSINTResult
-	TechResults    []TechResult
-	Chains         []ExploitChain
-	ExploitResults []ExploitResult
+	Target         string            `json:"target"`
+	StartedAt      time.Time         `json:"started_at"`
+	Duration       time.Duration     `json:"duration_ns"`
+	Subdomains     []SubdomainResult `json:"subdomains,omitempty"`
+	ProbeResults   []ProbeResult     `json:"probes,omitempty"`
+	TLSResults     []TLSResult       `json:"tls,omitempty"`
+	HeaderResults  []HeaderResult    `json:"headers,omitempty"`
+	Findings       []Finding         `json:"findings,omitempty"`
+	OSINTResults   []OSINTResult     `json:"osint,omitempty"`
+	TechResults    []TechResult      `json:"technology,omitempty"`
+	Chains         []ExploitChain    `json:"chains,omitempty"`
+	ExploitResults []ExploitResult   `json:"exploits,omitempty"`
 }
 
 // SubdomainResult holds the outcome of a single subdomain resolution attempt.
 // Source indicates how it was found (crt.sh, wordlist, SAN, mutation).
 type SubdomainResult struct {
-	FQDN       string
-	IPs        []string
-	Source     string
-	Resolved   bool
-	DeadCNAMEs []string
+	FQDN       string   `json:"fqdn"`
+	IPs        []string `json:"ips,omitempty"`
+	Source     string   `json:"source"`
+	Resolved   bool     `json:"resolved"`
+	DeadCNAMEs []string `json:"dead_cnames,omitempty"`
 }
 
 // ProbeResult captures metadata from an HTTP/HTTPS probe of a single host,
 // including response status, headers, page title, detected technologies,
 // and timing information.
 type ProbeResult struct {
-	FQDN           string
-	URL            string
-	FinalURL       string
-	StatusCode     int
-	Server         string
-	TechHeaders    map[string]string
-	Technologies   []string
-	Title          string
-	ResponseTimeMs int64
-	IsAlive        bool
-	RedirectChain  []string
+	FQDN           string            `json:"fqdn"`
+	URL            string            `json:"url"`
+	FinalURL       string            `json:"final_url,omitempty"`
+	StatusCode     int               `json:"status_code"`
+	Server         string            `json:"server,omitempty"`
+	TechHeaders    map[string]string `json:"tech_headers,omitempty"`
+	Technologies   []string          `json:"technologies,omitempty"`
+	Title          string            `json:"title,omitempty"`
+	ResponseTimeMs int64             `json:"response_time_ms"`
+	IsAlive        bool              `json:"is_alive"`
+	RedirectChain  []string          `json:"redirect_chain,omitempty"`
 }
 
 // TLSResult contains certificate and protocol information gathered during
 // a TLS handshake with a target host, along with any derived findings.
 type TLSResult struct {
-	Hostname        string
-	Protocol        string
-	Cipher          string
-	Issuer          string
-	Subject         string
-	ValidFrom       string
-	ValidTo         string
-	DaysUntilExpiry int
-	Expired         bool
-	ExpiringSoon    bool
-	SelfSigned      bool
-	SANs            []string
-	Findings        []Finding
-	Supported       bool
-	Error           string
+	Hostname        string    `json:"hostname"`
+	Protocol        string    `json:"protocol,omitempty"`
+	Cipher          string    `json:"cipher,omitempty"`
+	Issuer          string    `json:"issuer,omitempty"`
+	Subject         string    `json:"subject,omitempty"`
+	ValidFrom       string    `json:"valid_from,omitempty"`
+	ValidTo         string    `json:"valid_to,omitempty"`
+	DaysUntilExpiry int       `json:"days_until_expiry"`
+	Expired         bool      `json:"expired"`
+	ExpiringSoon    bool      `json:"expiring_soon"`
+	SelfSigned      bool      `json:"self_signed"`
+	SANs            []string  `json:"sans,omitempty"`
+	Findings        []Finding `json:"findings,omitempty"`
+	Supported       bool      `json:"supported"`
+	Error           string    `json:"error,omitempty"`
 }
 
 // HeaderResult records the presence or absence of security-related HTTP
 // response headers for a single URL, together with CORS configuration
 // details and any associated findings.
 type HeaderResult struct {
-	URL      string
-	Headers  map[string]string
-	CORS     string
-	Findings []Finding
-	Success  bool
-	Error    string
+	URL      string            `json:"url"`
+	Headers  map[string]string `json:"headers,omitempty"`
+	CORS     string            `json:"cors,omitempty"`
+	Findings []Finding         `json:"findings,omitempty"`
+	Success  bool              `json:"success"`
+	Error    string            `json:"error,omitempty"`
 }
 
 // TechResult records the detected application stack for a single URL: the
@@ -235,12 +235,12 @@ type HeaderResult struct {
 // identified, detected components (e.g. WordPress plugins), and any
 // version-specific or misconfiguration findings derived from the deep audit.
 type TechResult struct {
-	URL        string
-	Stack      string
-	Version    string
-	DetectedBy string
-	Components []string
-	Findings   []Finding
+	URL        string    `json:"url"`
+	Stack      string    `json:"stack,omitempty"`
+	Version    string    `json:"version,omitempty"`
+	DetectedBy string    `json:"detected_by,omitempty"`
+	Components []string  `json:"components,omitempty"`
+	Findings   []Finding `json:"findings,omitempty"`
 }
 
 // randomUserAgents is a pool of realistic User-Agent strings used when

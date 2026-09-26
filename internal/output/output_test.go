@@ -110,8 +110,11 @@ func TestReportJSONIncludesTechResults(t *testing.T) {
 		t.Fatalf("encoding report: %v", err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "TechResults") || !strings.Contains(out, "WordPress") || !strings.Contains(out, "6.0.2") {
+	if !strings.Contains(out, `"technology"`) || !strings.Contains(out, "WordPress") || !strings.Contains(out, "6.0.2") {
 		t.Fatalf("JSON output missing tech results: %s", out)
+	}
+	if strings.Contains(out, "TechResults") {
+		t.Fatalf("JSON output leaked untagged Go field name (want snake_case \"technology\"): %s", out)
 	}
 }
 
@@ -258,8 +261,11 @@ func TestReportJSONIncludesChains(t *testing.T) {
 		t.Fatalf("encoding report: %v", err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "Chains") || !strings.Contains(out, "Full Compromise") || !strings.Contains(out, "Unauthenticated RCE") {
+	if !strings.Contains(out, `"chains"`) || !strings.Contains(out, "Full Compromise") || !strings.Contains(out, "Unauthenticated RCE") {
 		t.Fatalf("JSON output missing chains: %s", out)
+	}
+	if strings.Contains(out, "\"Chains\"") {
+		t.Fatalf("JSON output leaked untagged Go field name (want snake_case \"chains\"): %s", out)
 	}
 }
 
