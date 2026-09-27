@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/QYVORA/qyvora-anansi/internal/events"
@@ -14,16 +15,24 @@ var flagEvents string
 
 // openEventsWriter resolves the --events destination spec into a writer:
 //
-//	""        disabled (no event stream)
+//	""  and the disable words below   disabled (no event stream)
 //	"stdout"  JSONL to stdout (machine output; do not mix with human reports)
 //	"stderr"  JSONL to stderr (the default choice for interactive use)
 //	anything else is a file path, created/truncated with 0600
 //
+// The disable words are matched case-insensitively. Without them,
+// "--events off" fell through to the file branch and created a file
+// literally named "off" in the working directory, so the obvious way to
+// turn the stream off created a file instead.
+//
+// A file destination is truncated rather than appended, so one file holds
+// exactly one run's events and has a run boundary at byte zero.
+//
 // The returned close function must be called when the stream is done; it is
 // nil when the stream is disabled or a fixed console.
 func openEventsWriter(spec string) (io.Writer, func() error, error) {
-	switch spec {
-	case "":
+	switch strings.ToLower(spec) {
+	case "", "off", "none", "disable", "disabled":
 		return nil, nil, nil
 	case "stdout":
 		return os.Stdout, nil, nil
