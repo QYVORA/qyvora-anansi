@@ -69,15 +69,20 @@ var versionCmd = &cobra.Command{
 		if !strings.EqualFold(flagOut, "terminal") {
 			return &usageError{fmt.Errorf("invalid output format %q for version (terminal, json)", flagOut)}
 		}
-		cmd.Printf("anansi %s\n", info.Version)
-		cmd.Printf("  framework:  %s\n", info.Framework)
-		cmd.Printf("  commit:     %s\n", info.Commit)
-		cmd.Printf("  built:      %s\n", info.Date)
-		cmd.Printf("  by:         %s\n", info.BuildUser)
-		cmd.Printf("  go:         %s %s/%s\n", info.GoVersion, info.OS, info.Arch)
-		cmd.Printf("  website:    %s\n", info.Website)
-		cmd.Printf("  support:    %s\n", info.Support)
-		cmd.Printf("  built in:   %s\n", info.BuiltIn)
+		// Write to stdout explicitly. cobra's cmd.Print* helpers route to
+		// OutOrStderr(), so `anansi version > file` used to produce an empty
+		// file, and the installer's version probe -- which discards stderr --
+		// saw no version at all and fell back to parsing the --help banner.
+		w := cmd.OutOrStdout()
+		fmt.Fprintf(w, "anansi %s\n", info.Version)
+		fmt.Fprintf(w, "  framework:  %s\n", info.Framework)
+		fmt.Fprintf(w, "  commit:     %s\n", info.Commit)
+		fmt.Fprintf(w, "  built:      %s\n", info.Date)
+		fmt.Fprintf(w, "  by:         %s\n", info.BuildUser)
+		fmt.Fprintf(w, "  go:         %s %s/%s\n", info.GoVersion, info.OS, info.Arch)
+		fmt.Fprintf(w, "  website:    %s\n", info.Website)
+		fmt.Fprintf(w, "  support:    %s\n", info.Support)
+		fmt.Fprintf(w, "  built in:   %s\n", info.BuiltIn)
 		return nil
 	},
 }
@@ -239,7 +244,7 @@ func dedupeFindings(findings []output.Finding) []output.Finding {
 // the target and runs the enabled modules.
 func runScan(cmd *cobra.Command, args []string) error {
 	if showVersion, _ := cmd.Flags().GetBool("version"); showVersion {
-		cmd.Println(version.Version)
+		fmt.Fprintln(cmd.OutOrStdout(), version.Version)
 		return nil
 	}
 	if len(args) == 0 {

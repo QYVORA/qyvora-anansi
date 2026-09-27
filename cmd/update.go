@@ -92,7 +92,8 @@ No Go toolchain, Git, or source checkout is required.`,
 			if jerr != nil {
 				return jerr
 			}
-			cmd.Println(string(data))
+			// stdout, not cobra's cmd.Print (which writes to stderr).
+			fmt.Fprintln(cmd.OutOrStdout(), string(data))
 		}
 
 		return enrichUpdateError(err)
