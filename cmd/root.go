@@ -449,8 +449,31 @@ func runScanTarget(args []string, console bool) error {
 
 	out.Banner(target)
 
+	// Phase progress for the activity view: one step per enabled module, so
+	// the shared terminal's activity region and progress bar move with the
+	// scan rather than sitting still until a phase ends.
+	totalPhases := 0
+	for _, m := range flagModules {
+		if hasModule(m) {
+			totalPhases++
+		}
+	}
+	if totalPhases < 1 {
+		totalPhases = 1
+	}
+	phaseRun := 0
+	progressEmit := func(message string) {
+		phaseRun++
+		emit(events.LevelInfo, events.ProgressUpdated, map[string]any{
+			"message": message,
+			"current": phaseRun,
+			"total":   totalPhases,
+		})
+	}
+
 	// -- PHASE 1: DISCOVERY ------------------------------------------------
 	if hasModule("discovery") {
+		progressEmit("DISCOVERY")
 		done := phaseEmit("discovery", "01", "DISCOVERY")
 		out.PhaseHeader("01", "DISCOVERY", "subdomain enumeration + DNS resolution")
 		subdomains, err := discovery.Run(out, target, flagDeep, flagTimeout, flagWordlist, flagThreads, flagRecursive, flagMutate, flagDelay, flagStealth)
@@ -466,6 +489,7 @@ func runScanTarget(args []string, console bool) error {
 
 	// -- PHASE 2: PROBE ----------------------------------------------------
 	if hasModule("probe") && len(report.Subdomains) > 0 {
+		progressEmit("PROBE")
 		done := phaseEmit("probe", "02", "PROBE")
 		out.PhaseHeader("02", "PROBE", "HTTP/HTTPS surface mapping")
 		hosts := discovery.LiveHosts(report.Subdomains)
@@ -482,6 +506,7 @@ func runScanTarget(args []string, console bool) error {
 
 	// -- PHASE 3: TLS ------------------------------------------------------
 	if hasModule("tls") && len(report.ProbeResults) > 0 {
+		progressEmit("TLS")
 		done := phaseEmit("tls", "03", "TLS")
 		out.PhaseHeader("03", "TLS", "certificate analysis + SAN discovery")
 		liveHosts := probe.LiveOnly(report.ProbeResults)
@@ -501,6 +526,7 @@ func runScanTarget(args []string, console bool) error {
 
 	// -- PHASE 4: HEADERS --------------------------------------------------
 	if hasModule("headers") && len(report.ProbeResults) > 0 {
+		progressEmit("HEADERS")
 		done := phaseEmit("headers", "04", "HEADERS")
 		out.PhaseHeader("04", "HEADERS", "security header audit")
 		liveHosts := probe.LiveOnly(report.ProbeResults)
@@ -516,6 +542,7 @@ func runScanTarget(args []string, console bool) error {
 
 	// -- PHASE 5: PATHS ----------------------------------------------------
 	if hasModule("paths") && len(report.ProbeResults) > 0 {
+		progressEmit("PATHS")
 		done := phaseEmit("paths", "05", "PATHS")
 		out.PhaseHeader("05", "PATHS", "exposed endpoint + file detection")
 		liveHosts := probe.LiveOnly(report.ProbeResults)
@@ -528,6 +555,7 @@ func runScanTarget(args []string, console bool) error {
 
 	// -- PHASE 6: TECH-STACK DEEP AUDIT ------------------------------
 	if hasModule("tech") && len(report.ProbeResults) > 0 {
+		progressEmit("TECH-STACK")
 		done := phaseEmit("tech", "06", "TECH-STACK")
 		out.PhaseHeader("06", "TECH-STACK", "CMS fingerprinting + version-specific vulnerability audit")
 		liveHosts := probe.LiveOnly(report.ProbeResults)
@@ -543,6 +571,7 @@ func runScanTarget(args []string, console bool) error {
 
 	// -- PHASE 7: TAKEOVER -------------------------------------------------
 	if hasModule("takeover") && len(report.Subdomains) > 0 {
+		progressEmit("TAKEOVER")
 		done := phaseEmit("takeover", "07", "TAKEOVER")
 		out.PhaseHeader("07", "TAKEOVER", "dangling CNAME subdomain takeover detection")
 		takeoverFindings := takeover.Run(out, report.Subdomains, flagTimeout, flagThreads, flagDelay, flagStealth)
@@ -554,6 +583,7 @@ func runScanTarget(args []string, console bool) error {
 
 	// -- PHASE 8: OSINT ----------------------------------------------------
 	if hasModule("osint") {
+		progressEmit("OSINT")
 		done := phaseEmit("osint", "08", "OSINT")
 		out.PhaseHeader("08", "OSINT", "organisation recon — emails, phones, WHOIS, employees")
 		osintResults := osint.Run(out, report.ProbeResults, target, flagTimeout, flagThreads, flagDelay, flagStealth)
@@ -565,6 +595,7 @@ func runScanTarget(args []string, console bool) error {
 	// -- PHASE 9: EXPLOIT CHAIN ANALYSIS ----------------------------------
 	report.Findings = dedupeFindings(report.Findings)
 	if hasModule("chain") {
+		progressEmit("CHAIN")
 		done := phaseEmit("chain", "09", "CHAIN")
 		out.PhaseHeader("09", "CHAIN", "multi-step exploit path assembly from findings")
 		chains := chain.Run(report.Findings)
@@ -580,6 +611,7 @@ func runScanTarget(args []string, console bool) error {
 	// results carry the authorization_required state; with --exploit-dry-run
 	// validation runs but proof execution is skipped.
 	if hasModule("exploit") {
+		progressEmit("EXPLOIT")
 		done := phaseEmit("exploit", "10", "EXPLOIT")
 		out.PhaseHeader("10", "EXPLOIT", "controlled PoC validation and exploitation of findings")
 		report.ExploitResults = runExploitPhase(out, report, emit)
@@ -606,6 +638,16 @@ func runScanTarget(args []string, console bool) error {
 	} else {
 		out.Summary(report)
 	}
+
+	// The bar completes wherever the scan stopped, even when phases were
+	// skipped because there was no data for them: a finished scan reports a
+	// finished bar.
+	phaseRun = totalPhases
+	emit(events.LevelInfo, events.ProgressUpdated, map[string]any{
+		"message": "Done",
+		"current": totalPhases,
+		"total":   totalPhases,
+	})
 
 	emit(events.LevelInfo, events.ReportGenerated, map[string]any{
 		"output": flagOutputFile,

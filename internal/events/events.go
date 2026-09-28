@@ -28,6 +28,7 @@ const (
 	Error             = "error"
 	ReportGenerated   = "report.generated"
 	ScanInterrupted   = "scan.interrupted"
+	ProgressUpdated   = "progress.updated"
 
 	// Exploitation lifecycle events, emitted by the PoC/exploitation engine.
 	// The dotted names are part of the shared contract across all QYVORA
