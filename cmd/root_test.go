@@ -53,10 +53,11 @@ func TestVersionFlagPrintsVersion(t *testing.T) {
 	version.Version = "test-1.2.3"
 	defer func() { version.Version = old }()
 
+	root := newRootCmd()
 	var buf bytes.Buffer
-	rootCmd.SetOut(&buf)
-	rootCmd.SetArgs([]string{"--version"})
-	if err := rootCmd.Execute(); err != nil {
+	root.SetOut(&buf)
+	root.SetArgs([]string{"--version"})
+	if err := root.Execute(); err != nil {
 		t.Fatalf("Execute --version: %v", err)
 	}
 	if got := buf.String(); got != "test-1.2.3\n" {
@@ -69,10 +70,11 @@ func TestVersionSubcommandPrintsVersion(t *testing.T) {
 	version.Version = "v9.9.9-rc1"
 	defer func() { version.Version = old }()
 
+	root := newRootCmd()
 	var buf bytes.Buffer
-	rootCmd.SetOut(&buf)
-	rootCmd.SetArgs([]string{"version"})
-	if err := rootCmd.Execute(); err != nil {
+	root.SetOut(&buf)
+	root.SetArgs([]string{"version"})
+	if err := root.Execute(); err != nil {
 		t.Fatalf("Execute version subcommand: %v", err)
 	}
 	if got := buf.String(); !strings.Contains(got, "anansi v9.9.9-rc1\n") {
@@ -91,10 +93,11 @@ func TestVersionSubcommandJSONOutput(t *testing.T) {
 	version.Version = "v9.9.9-rc1"
 	defer func() { version.Version = old }()
 
+	root := newRootCmd()
 	var buf bytes.Buffer
-	rootCmd.SetOut(&buf)
-	rootCmd.SetArgs([]string{"version", "-o", "json"})
-	if err := rootCmd.Execute(); err != nil {
+	root.SetOut(&buf)
+	root.SetArgs([]string{"version", "-o", "json"})
+	if err := root.Execute(); err != nil {
 		t.Fatalf("Execute version -o json: %v", err)
 	}
 	var parsed map[string]string
@@ -105,10 +108,11 @@ func TestVersionSubcommandJSONOutput(t *testing.T) {
 		t.Errorf("version -o json = %v, want framework=anansi version=v9.9.9-rc1", parsed)
 	}
 
-	rootCmd.SetOut(&buf)
+	root = newRootCmd()
+	root.SetOut(&buf)
 	buf.Reset()
-	rootCmd.SetArgs([]string{"version", "-o", "yaml"})
-	err := rootCmd.Execute()
+	root.SetArgs([]string{"version", "-o", "yaml"})
+	err := root.Execute()
 	var ue *usageError
 	if !errors.As(err, &ue) {
 		t.Errorf("version -o yaml error = %v, want usageError (exit 2)", err)
@@ -125,11 +129,12 @@ func TestRunScanRejectsIPTarget(t *testing.T) {
 func TestExecuteTreatsTargetAsPositionalArg(t *testing.T) {
 	// Guards against cobra "unknown command" regressions: the root command
 	// has subcommands but must still accept a bare domain target.
-	if err := rootCmd.Flags().Set("version", "false"); err != nil {
+	root := newRootCmd()
+	if err := root.Flags().Set("version", "false"); err != nil {
 		t.Fatalf("resetting version flag: %v", err)
 	}
-	rootCmd.SetArgs([]string{"192.168.1.1"})
-	err := rootCmd.Execute()
+	root.SetArgs([]string{"192.168.1.1"})
+	err := root.Execute()
 	if err == nil {
 		t.Fatal("expected IP rejection error, got nil")
 	}
@@ -150,23 +155,26 @@ func TestRunScanRejectsMalformedDomain(t *testing.T) {
 }
 
 func TestScanSubcommandRejectsMissingTarget(t *testing.T) {
-	rootCmd.SetArgs([]string{"scan"})
-	err := rootCmd.Execute()
+	root := newRootCmd()
+	root.SetArgs([]string{"scan"})
+	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "1 arg") {
 		t.Errorf("scan without target: got %v, want arg-count error", err)
 	}
 }
 
 func TestScanSubcommandRejectsIPTarget(t *testing.T) {
-	rootCmd.SetArgs([]string{"scan", "192.168.1.1"})
-	err := rootCmd.Execute()
+	root := newRootCmd()
+	root.SetArgs([]string{"scan", "192.168.1.1"})
+	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "not an IP") {
 		t.Errorf("scan with IP target: got %v, want IP validation error", err)
 	}
 }
 
 func TestScanSubcommandExists(t *testing.T) {
-	if _, _, err := rootCmd.Find([]string{"scan"}); err != nil {
+	root := newRootCmd()
+	if _, _, err := root.Find([]string{"scan"}); err != nil {
 		t.Fatalf("scan subcommand not found: %v", err)
 	}
 }

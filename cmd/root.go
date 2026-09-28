@@ -49,87 +49,129 @@ var (
 	flagExploitSel string
 )
 
-// versionCmd prints the build version.  The installer and CI use it to
+// newVersionCmd builds the version command.  The installer and CI use it to
 // verify a genuine binary is on the system. It honors the shared QYVORA
 // output contract: `-o/--output json` emits a machine-readable object.
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the ANANSI CLI version",
-	Args:  cobra.NoArgs,
-	RunE: func(cmd *cobra.Command, _ []string) error {
-		info := version.GetInfo()
-		if strings.EqualFold(flagOut, "json") {
-			data, err := json.Marshal(info)
-			if err != nil {
-				return err
+//
+// It is a constructor rather than a package-level value because the TUI runs
+// the command tree repeatedly in one process. A shared command is parsed and
+// executed again on every keystroke-submitted line, and a command object that
+// has already run carries its flag state forward into the next run.
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print the ANANSI CLI version",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			info := version.GetInfo()
+			if strings.EqualFold(flagOut, "json") {
+				data, err := json.Marshal(info)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), string(data))
+				return nil
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), string(data))
+			if !strings.EqualFold(flagOut, "terminal") {
+				return &usageError{fmt.Errorf("invalid output format %q for version (terminal, json)", flagOut)}
+			}
+			// Write to stdout explicitly. cobra's cmd.Print* helpers route to
+			// OutOrStderr(), so `anansi version > file` used to produce an empty
+			// file, and the installer's version probe -- which discards stderr --
+			// saw no version at all and fell back to parsing the --help banner.
+			w := cmd.OutOrStdout()
+			fmt.Fprintf(w, "anansi %s\n", info.Version)
+			fmt.Fprintf(w, "  framework:  %s\n", info.Framework)
+			fmt.Fprintf(w, "  commit:     %s\n", info.Commit)
+			fmt.Fprintf(w, "  built:      %s\n", info.Date)
+			fmt.Fprintf(w, "  by:         %s\n", info.BuildUser)
+			fmt.Fprintf(w, "  go:         %s %s/%s\n", info.GoVersion, info.OS, info.Arch)
+			fmt.Fprintf(w, "  website:    %s\n", info.Website)
+			fmt.Fprintf(w, "  support:    %s\n", info.Support)
+			fmt.Fprintf(w, "  built in:   %s\n", info.BuiltIn)
 			return nil
-		}
-		if !strings.EqualFold(flagOut, "terminal") {
-			return &usageError{fmt.Errorf("invalid output format %q for version (terminal, json)", flagOut)}
-		}
-		// Write to stdout explicitly. cobra's cmd.Print* helpers route to
-		// OutOrStderr(), so `anansi version > file` used to produce an empty
-		// file, and the installer's version probe -- which discards stderr --
-		// saw no version at all and fell back to parsing the --help banner.
-		w := cmd.OutOrStdout()
-		fmt.Fprintf(w, "anansi %s\n", info.Version)
-		fmt.Fprintf(w, "  framework:  %s\n", info.Framework)
-		fmt.Fprintf(w, "  commit:     %s\n", info.Commit)
-		fmt.Fprintf(w, "  built:      %s\n", info.Date)
-		fmt.Fprintf(w, "  by:         %s\n", info.BuildUser)
-		fmt.Fprintf(w, "  go:         %s %s/%s\n", info.GoVersion, info.OS, info.Arch)
-		fmt.Fprintf(w, "  website:    %s\n", info.Website)
-		fmt.Fprintf(w, "  support:    %s\n", info.Support)
-		fmt.Fprintf(w, "  built in:   %s\n", info.BuiltIn)
-		return nil
-	},
+		},
+	}
 }
 
-// scanCmd runs a scan against an explicit target.  It exists so the REPL
+// newScanCmd builds the explicit scan command.  It exists so the REPL
 // habit `anansi scan <target>` also works at the CLI; without it cobra would
 // treat "scan" itself as the target domain.
-var scanCmd = &cobra.Command{
-	Use:   "scan <target>",
-	Short: "Run a scan against a target",
-	Args:  usageArgs(cobra.ExactArgs(1)),
-	RunE: func(_ *cobra.Command, args []string) error {
-		return runScanTarget(args, false)
-	},
+func newScanCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "scan <target>",
+		Short: "Run a scan against a target",
+		Args:  usageArgs(cobra.ExactArgs(1)),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return runScanTarget(args, false)
+		},
+	}
 }
 
-// rootCmd is the main Cobra command.  It requires exactly one argument:
-// the target domain to scan.  The full ASCII art banner is shown in the
+// newRootCmd builds the main Cobra command. It takes either no argument, which
+// opens the interactive terminal application, or a single positional argument,
+// which is the target domain to scan. The full ASCII art banner is shown in the
 // help text.
-var rootCmd = &cobra.Command{
-	Use:   "anansi [target]",
-	Short: "ANANSI — Attack Surface Intelligence Engine",
-	Long: color.New(color.FgCyan, color.Bold).Sprint(output.AnansiASCIIArt) + `
+//
+// The tree is built per call rather than held in a package-level variable. The
+// TUI runs the tree repeatedly in one process, and cobra binds every flag to a
+// package-level variable at registration time: parse --deep on one line and the
+// next line's scan inherits it, because nothing clears it. Rebuilding reapplies
+// every default, so each command runs with exactly the flags it was given.
+func newRootCmd() *cobra.Command {
+	root := &cobra.Command{
+		Use:   "anansi [target]",
+		Short: "ANANSI — Attack Surface Intelligence Engine",
+		Long: color.New(color.FgCyan, color.Bold).Sprint(output.AnansiASCIIArt) + `
 
   Attack Surface Intelligence Engine — ` + output.CompanyName + `
   ` + output.CompanyURL + `
   Built in ` + output.BuiltIn + `
 `,
-	// ArbitraryArgs keeps the root command accepting a bare positional
-	// target even though it also has subcommands (e.g. `anansi version`).
-	// Without this, cobra rejects `anansi target.com` as an unknown command.
-	Args: cobra.ArbitraryArgs,
-	RunE: runScan,
+		// ArbitraryArgs keeps the root command accepting a bare positional
+		// target even though it also has subcommands (e.g. `anansi version`).
+		// Without this, cobra rejects `anansi target.com` as an unknown command.
+		Args: cobra.ArbitraryArgs,
+	}
+
+	registerRootFlags(root)
+	return attachSubcommands(root)
 }
 
 // Execute is called by main.go.  It runs the root Cobra command and
 // exits with the canonical QYVORA code: 0 success, 1 runtime error,
 // 2 usage error, 130 interrupt.
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		code := 1
-		var ue *usageError
-		if errors.As(err, &ue) {
-			code = 2
-		}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	if code := ExecuteArgsContext(ctx, os.Args[1:]); code != 0 {
 		os.Exit(code)
 	}
+}
+
+// ExecuteArgsContext runs the command tree with an explicit argument vector
+// under a caller-supplied context and returns the process exit code.
+//
+// The interactive TUI drives this form. It runs commands in-process on its own
+// goroutine and must be able to cancel a single execution without tearing down
+// the process, so the work follows a context the caller owns rather than
+// process-wide signal handling. That is what makes Ctrl+C stop the operation
+// itself instead of the window drawn around it.
+func ExecuteArgsContext(ctx context.Context, args []string) int {
+	root := newRootCmd()
+	root.SetContext(ctx)
+	root.SetArgs(args)
+	if err := root.Execute(); err != nil {
+		var ue *usageError
+		if errors.As(err, &ue) {
+			return 2
+		}
+		if errors.Is(err, context.Canceled) {
+			return 130
+		}
+		return 1
+	}
+	return 0
 }
 
 // usageError marks a command-line usage problem (bad flag or argument) so the
@@ -152,35 +194,54 @@ func usageArgs(validate cobra.PositionalArgs) cobra.PositionalArgs {
 // init registers all CLI flags with their default values and help text.
 // They are registered as persistent flags so the `scan` and `version`
 // subcommands inherit the same option set as the bare `anansi <target>` form.
-func init() {
-	rootCmd.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
+// registerRootFlags attaches anansi's flags to root.
+func registerRootFlags(root *cobra.Command) {
+
+	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return &usageError{err}
 	})
-	rootCmd.PersistentFlags().BoolVar(&flagDeep, "deep", false, "Enable deep scan (larger wordlist, more path probing)")
-	rootCmd.PersistentFlags().StringVarP(&flagOut, "output", "o", "terminal", "Output format: terminal | json | markdown | html")
+	root.PersistentFlags().BoolVar(&flagDeep, "deep", false, "Enable deep scan (larger wordlist, more path probing)")
+	root.PersistentFlags().StringVarP(&flagOut, "output", "o", "terminal", "Output format: terminal | json | markdown | html")
 	// "out" is kept as a legacy alias; "--output"/-o is the canonical spelling.
-	rootCmd.PersistentFlags().StringVar(&flagOut, "out", "terminal", "Output format (legacy alias for --output)")
-	_ = rootCmd.PersistentFlags().MarkHidden("out")
-	rootCmd.PersistentFlags().IntVar(&flagTimeout, "timeout", 5, "Per-request timeout in seconds")
-	rootCmd.PersistentFlags().StringSliceVar(&flagModules, "modules", append([]string(nil), defaultModules...), "Modules to run (comma-separated)")
-	rootCmd.PersistentFlags().StringVarP(&flagWordlist, "wordlist", "w", "", "Path to custom subdomain wordlist")
-	rootCmd.PersistentFlags().IntVarP(&flagThreads, "threads", "t", 100, "Number of concurrent threads")
-	rootCmd.PersistentFlags().BoolVarP(&flagVerbose, "verbose", "v", false, "Show all results including not-found/failed items")
-	rootCmd.PersistentFlags().BoolVarP(&flagRecursive, "recursive", "r", false, "Enable recursive subdomain brute-force on resolved subdomains")
-	rootCmd.PersistentFlags().BoolVarP(&flagMutate, "mutate", "m", false, "Enable subdomain mutation brute-force based on resolved prefixes")
-	rootCmd.PersistentFlags().IntVar(&flagDelay, "delay", 0, "Delay between requests in ms for rate limiting")
-	rootCmd.PersistentFlags().StringSliceVarP(&flagPorts, "ports", "p", []string{"80", "443"}, "Ports to probe (comma-separated)")
-	rootCmd.PersistentFlags().BoolVar(&flagStealth, "stealth", false, "Enable stealth mode: random UA, jitter, skip crt.sh, reduced concurrency")
-	rootCmd.PersistentFlags().BoolVar(&flagAuthorized, "authorized", false, "Confirm authorized testing before active PoC/exploitation runs (required for exploit module execution)")
-	rootCmd.PersistentFlags().BoolVar(&flagExploitDry, "exploit-dry-run", false, "Run the exploit phase in validation-only mode: no proof requests are executed")
-	rootCmd.PersistentFlags().StringVar(&flagOutputFile, "output-file", "", "Write output to file instead of stdout")
-	rootCmd.PersistentFlags().StringVar(&flagEvents, "events", "", "Emit JSONL event stream to stdout, stderr, or a file path (e.g. --events scan.jsonl)")
-	rootCmd.Flags().Bool("version", false, "Print version information and exit")
-	rootCmd.AddCommand(versionCmd)
-	rootCmd.AddCommand(scanCmd)
-	rootCmd.AddCommand(updatesCmd)
-	rootCmd.AddCommand(newCompletionCmd())
-	rootCmd.AddCommand(newExploitCmd())
+	root.PersistentFlags().StringVar(&flagOut, "out", "terminal", "Output format (legacy alias for --output)")
+	_ = root.PersistentFlags().MarkHidden("out")
+	root.PersistentFlags().IntVar(&flagTimeout, "timeout", 5, "Per-request timeout in seconds")
+	root.PersistentFlags().StringSliceVar(&flagModules, "modules", append([]string(nil), defaultModules...), "Modules to run (comma-separated)")
+	root.PersistentFlags().StringVarP(&flagWordlist, "wordlist", "w", "", "Path to custom subdomain wordlist")
+	root.PersistentFlags().IntVarP(&flagThreads, "threads", "t", 100, "Number of concurrent threads")
+	root.PersistentFlags().BoolVarP(&flagVerbose, "verbose", "v", false, "Show all results including not-found/failed items")
+	root.PersistentFlags().BoolVarP(&flagRecursive, "recursive", "r", false, "Enable recursive subdomain brute-force on resolved subdomains")
+	root.PersistentFlags().BoolVarP(&flagMutate, "mutate", "m", false, "Enable subdomain mutation brute-force based on resolved prefixes")
+	root.PersistentFlags().IntVar(&flagDelay, "delay", 0, "Delay between requests in ms for rate limiting")
+	root.PersistentFlags().StringSliceVarP(&flagPorts, "ports", "p", []string{"80", "443"}, "Ports to probe (comma-separated)")
+	root.PersistentFlags().BoolVar(&flagStealth, "stealth", false, "Enable stealth mode: random UA, jitter, skip crt.sh, reduced concurrency")
+	root.PersistentFlags().BoolVar(&flagAuthorized, "authorized", false, "Confirm authorized testing before active PoC/exploitation runs (required for exploit module execution)")
+	root.PersistentFlags().BoolVar(&flagExploitDry, "exploit-dry-run", false, "Run the exploit phase in validation-only mode: no proof requests are executed")
+	root.PersistentFlags().StringVar(&flagOutputFile, "output-file", "", "Write output to file instead of stdout")
+	root.PersistentFlags().StringVar(&flagEvents, "events", "", "Emit JSONL event stream to stdout, stderr, or a file path (e.g. --events scan.jsonl)")
+	root.Flags().Bool("version", false, "Print version information and exit")
+}
+
+// newRootCmdFlags attaches anansi's flags to a freshly built root. The
+// defaults are declared once here and reapplied to every tree, which is what
+// keeps one TUI command's flags out of the next.
+func attachSubcommands(root *cobra.Command) *cobra.Command {
+	// The default action is assigned here rather than in the literal above.
+	// Go's initialisation dependency analysis follows references through
+	// function bodies: the default action reaches runTUI, which needs the root,
+	// so naming it inside the root's own initialiser is a cycle. A function
+	// body is not part of initialisation.
+	root.RunE = runScan
+	// The TUI must be a real subcommand, not only the default action. anansi's
+	// root takes a bare positional target, so without this `anansi tui` would
+	// read "tui" as a hostname and start scanning it.
+	root.AddCommand(commandTUI())
+	root.AddCommand(newVersionCmd())
+	root.AddCommand(newScanCmd())
+	root.AddCommand(newUpdatesCmd())
+	root.AddCommand(newCompletionCmd())
+	root.AddCommand(newExploitCmd())
+	return root
 }
 
 // newCompletionCmd emits a shell completion script for bash/zsh/fish/powershell,
@@ -191,15 +252,20 @@ func newCompletionCmd() *cobra.Command {
 		Short: "Generate a shell completion script",
 		Args:  usageArgs(cobra.ExactArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Complete the tree this command actually belongs to. Reaching for
+			// a package-level root here would be wrong twice over: it would be an
+			// initialisation cycle, and it would complete a different tree from
+			// the one the caller is running.
+			root := cmd.Root()
 			switch args[0] {
 			case "bash":
-				return rootCmd.GenBashCompletionV2(cmd.OutOrStdout(), true)
+				return root.GenBashCompletionV2(cmd.OutOrStdout(), true)
 			case "zsh":
-				return rootCmd.GenZshCompletion(cmd.OutOrStdout())
+				return root.GenZshCompletion(cmd.OutOrStdout())
 			case "fish":
-				return rootCmd.GenFishCompletion(cmd.OutOrStdout(), true)
+				return root.GenFishCompletion(cmd.OutOrStdout(), true)
 			case "powershell":
-				return rootCmd.GenPowerShellCompletionWithDesc(cmd.OutOrStdout())
+				return root.GenPowerShellCompletionWithDesc(cmd.OutOrStdout())
 			default:
 				return &usageError{fmt.Errorf("unknown shell %q (bash, zsh, fish, powershell)", args[0])}
 			}
@@ -248,7 +314,10 @@ func runScan(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 	if len(args) == 0 {
-		return runConsole()
+		// No target means no scan to perform, so this is the interactive case.
+		// The root is passed in: the default action calls runTUI, so naming the
+		// package-level root from inside it would be an initialisation cycle.
+		return runTUI(cmd.Root(), cmd.Context())
 	}
 	return runScanTarget(args, false)
 }
