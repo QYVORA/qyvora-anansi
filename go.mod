@@ -3,7 +3,7 @@ module github.com/QYVORA/qyvora-anansi
 go 1.26.5
 
 require (
-	github.com/QYVORA/qyvora-tui v0.6.1
+	github.com/QYVORA/qyvora-tui v0.6.2
 	github.com/fatih/color v1.16.0
 	github.com/spf13/cobra v1.8.0
 	golang.org/x/sys v0.38.0
