@@ -12,7 +12,7 @@ We will acknowledge receipt within 48 hours and provide an estimated timeline fo
 
 ## Contact
 
-- **Website:** https://qyvora.netlify.app
+- **Website:** https://qyvora.org
 - **Security contact:** qyvorasec@gmail.com
 - **Organisation:** QYVORA OffSec — Tamale, Ghana
 

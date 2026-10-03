@@ -84,7 +84,7 @@ func TestNoEnvironmentSecretAccess(t *testing.T) {
 // here only after a security review.
 func TestExternalHostsAllowlist(t *testing.T) {
 	allowlist := []string{
-		"qyvora.netlify.app",   // company home page (branding)
+		"qyvora.org",           // company home page (branding)
 		"fonts.googleapis.com", // font CDN referenced by the HTML report template
 		"evil-attacker.com",    // CORS audit: Origin header sent to test targets
 		"crt.sh",               // certificate transparency log used by discovery

@@ -35,7 +35,7 @@
   <br/>
 
   <p style="color: rgba(238, 240, 238, 0.40); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;">
-    Built by <a href="https://qyvora.netlify.app" style="color: #66B870; text-decoration: none; border-bottom: 1px dotted rgba(102, 184, 112, 0.3);">QYVORA OffSec</a>
+    Built by <a href="https://qyvora.org" style="color: #66B870; text-decoration: none; border-bottom: 1px dotted rgba(102, 184, 112, 0.3);">QYVORA OffSec</a>
     — Tamale, Ghana
   </p>
 
@@ -390,7 +390,7 @@ $ anansi
   [ANANSI ASCII-ART BANNER]          (green)
 
   Attack Surface Intelligence Engine
-  QYVORA OffSec — https://qyvora.netlify.app
+  QYVORA OffSec — https://qyvora.org
   Built in Tamale, Ghana
 
   [>] v dev
@@ -473,7 +473,7 @@ Console commands:
 <div align="center">
   <pre style="background: #0d0d0d; border: 1px solid rgba(102, 184, 112, 0.18); border-radius: 8px; padding: 1rem 1.5rem; display: inline-block; text-align: left; color: #EEF0EE; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; line-height: 1.5;">
   <span style="color: #66B870;">[ANANSI attack-surface spider art]</span>
-  Attack Surface Intelligence Engine — QYVORA // qyvora.netlify.app
+  Attack Surface Intelligence Engine — QYVORA // qyvora.org
   Built in Go
 
   <span style="color: #66B870;">[+] PHASE 01: DISCOVERY</span>   subdomain enumeration + DNS resolution
@@ -563,7 +563,7 @@ Only scan targets you own or have explicit written authorization to test. Unauth
 ## Contact
 
 QYVORA OffSec — Tamale, Ghana
-Website: https://qyvora.netlify.app · Security/Support: qyvorasec@gmail.com
+Website: https://qyvora.org · Security/Support: qyvorasec@gmail.com
 
 ---
 

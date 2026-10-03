@@ -9,7 +9,7 @@
   release workflow, and goreleaser now target the new path.
 - **Contact details** — `anansi version` and the company constants in
   `internal/output` (mirroring `internal/version`) surface official QYVORA
-  contact: https://qyvora.netlify.app · qyvorasec@gmail.com · Tamale, Ghana.
+  contact: https://qyvora.org · qyvorasec@gmail.com · Tamale, Ghana.
 
 ### Added (interactive console milestone)
 - Running `anansi` with no arguments now enters an interactive
