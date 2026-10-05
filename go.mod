@@ -5,6 +5,7 @@ go 1.26.5
 require (
 	github.com/QYVORA/qyvora-tui v0.7.1
 	github.com/fatih/color v1.16.0
+	github.com/muesli/termenv v0.16.0
 	github.com/spf13/cobra v1.8.0
 	golang.org/x/sys v0.48.0
 )
@@ -31,7 +32,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.19 // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
-	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect

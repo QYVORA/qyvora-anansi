@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/QYVORA/qyvora-anansi/internal/banner"
 	"github.com/QYVORA/qyvora-anansi/internal/chain"
 	"github.com/QYVORA/qyvora-anansi/internal/discovery"
 	"github.com/QYVORA/qyvora-anansi/internal/events"
@@ -122,7 +123,7 @@ func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "anansi [target]",
 		Short: "ANANSI — Attack Surface Intelligence Engine",
-		Long: color.New(color.FgCyan, color.Bold).Sprint(output.AnansiASCIIArt) + `
+		Long: banner.Render() + `
 
   Attack Surface Intelligence Engine — ` + output.CompanyName + `
   ` + output.CompanyURL + `

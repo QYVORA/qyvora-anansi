@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+
+	"github.com/QYVORA/qyvora-anansi/internal/banner"
 )
 
 var (
@@ -27,32 +29,10 @@ var (
 	greenDim  = color.New(color.FgGreen)
 )
 
-// ANSI palette for the ANANSI banner. ansiBody is the logo cyan (#10B0E8);
-// ansiFace renders the logo's near-black face detail white so it stays
-// visible on a dark terminal. True-color codes are emitted directly because
-// the bundled fatih/color version predates color.RGB.
-const (
-	ansiBody = "\x1b[38;2;16;176;232m"
-	ansiFace = "\x1b[38;2;255;255;255m"
-)
-
-// renderBannerLine paints one line of the ANANSI art in the logo palette:
-// ';' is the cyan spider body, the remaining glyphs are the face detail
-// rendered white. Spaces pass through untouched.
-func renderBannerLine(line string) string {
-	var b strings.Builder
-	for _, r := range line {
-		switch r {
-		case ' ':
-			b.WriteRune(r)
-		case ';':
-			b.WriteString(ansiBody + string(r) + "\x1b[0m")
-		default:
-			b.WriteString(ansiFace + string(r) + "\x1b[0m")
-		}
-	}
-	return b.String()
-}
+// renderBannerLine is gone, along with the ansiBody and ansiFace palette. It
+// painted ';' in the logo cyan and every other glyph white, a two-colour
+// treatment that belonged to the hand-drawn spider. The banner is now drawn in
+// the single QYVORA accent by banner.Colorize.
 
 // Renderer manages output formatting and verbosity.  It is created once per
 // scan and passed to every module so they can display progress inline.
@@ -105,13 +85,18 @@ func (r *Renderer) Verbose(msg string) {
 
 // Banner displays the ANANSI ASCII art, target, and scan start time.
 // In stealth mode the banner is skipped entirely.
+//
+// The art and its colour live in internal/banner so both are defined once and
+// match every other tool. The renderer's own quiet and stealth decisions still
+// win over the terminal's: a quiet or stealth run prints nothing here even on a
+// terminal that would happily draw the accent.
 func (r *Renderer) Banner(target string) {
 	if r.isQuiet() || r.stealth {
 		return
 	}
 	fmt.Println()
-	for _, line := range strings.Split(AnansiASCIIArt, "\n") {
-		fmt.Println(renderBannerLine(line))
+	for _, line := range strings.Split(banner.Art, "\n") {
+		fmt.Println(banner.Colorize(line))
 	}
 	fmt.Println()
 	fmt.Println()

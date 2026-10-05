@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/QYVORA/qyvora-anansi/internal/banner"
 )
 
 func TestComputeRisk(t *testing.T) {
@@ -306,30 +308,44 @@ func TestFindingConfidenceLevels(t *testing.T) {
 	}
 }
 
-func TestRenderBannerLineLogoPalette(t *testing.T) {
-	nBody, nFace := 0, 0
-	for _, line := range strings.Split(AnansiASCIIArt, "\n") {
-		for _, r := range line {
-			switch r {
-			case ' ':
-			case ';':
-				nBody++
-			default:
-				nFace++
-			}
+// TestBannerDrawsTheArt checks the terminal banner reaches the output, a row of
+// the canonical art at a time. The row-by-row painting is what lets each line
+// be coloured independently of its neighbours.
+func TestBannerDrawsTheArt(t *testing.T) {
+	r := &Renderer{format: "terminal"}
+	got := captureStdout(t, func() { r.Banner("example.com") })
+	for _, line := range strings.Split(strings.TrimRight(banner.Art, "\n"), "\n") {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		if !strings.Contains(got, line) {
+			t.Errorf("banner output missing art row %q", line)
 		}
 	}
-	rendered := ""
-	for _, line := range strings.Split(AnansiASCIIArt, "\n") {
-		rendered += renderBannerLine(line) + "\n"
+	// The target and the footers below the art are deliberately not asserted
+	// here. They are printed through package-level fatih/color objects, which
+	// bind to the real os.Stdout when the package is initialised, so they do not
+	// pass through the capture this helper installs.
+}
+
+// TestBannerSkippedForMachineFormats guards the suppression that makes the
+// banner safe to keep. A JSON, HTML or Markdown run exists to be read by
+// something other than a person, and a decorative banner is exactly the sort of
+// thing that must not leak into it.
+func TestBannerSkippedForMachineFormats(t *testing.T) {
+	for _, format := range []string{"json", "html", "markdown"} {
+		r := &Renderer{format: format}
+		if got := captureStdout(t, func() { r.Banner("example.com") }); got != "" {
+			t.Errorf("format %q wrote %d bytes, want 0", format, len(got))
+		}
 	}
-	if got := strings.Count(rendered, ansiBody); got != nBody {
-		t.Errorf("cyan body codes = %d, want %d (one per ';' glyph)", got, nBody)
-	}
-	if got := strings.Count(rendered, ansiFace); got != nFace {
-		t.Errorf("white face codes = %d, want %d (one per face glyph)", got, nFace)
-	}
-	if strings.Contains(rendered, ansiBody+" ") || strings.Contains(rendered, ansiFace+" ") {
-		t.Error("spaces must not be wrapped in color codes")
+}
+
+// TestBannerSkippedInStealthMode is the same guarantee for --stealth, which
+// suppresses the banner for a human reader as well as for a machine.
+func TestBannerSkippedInStealthMode(t *testing.T) {
+	r := New("terminal", false).WithStealth()
+	if got := captureStdout(t, func() { r.Banner("example.com") }); got != "" {
+		t.Errorf("stealth renderer wrote %d bytes, want 0", len(got))
 	}
 }
