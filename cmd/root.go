@@ -31,6 +31,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var updateFlag bool
+
 var (
 	flagDeep       bool
 	flagOut        string
@@ -201,25 +203,41 @@ func registerRootFlags(root *cobra.Command) {
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return &usageError{err}
 	})
-	root.PersistentFlags().BoolVar(&flagDeep, "deep", false, "Enable deep scan (larger wordlist, more path probing)")
-	root.PersistentFlags().StringVarP(&flagOut, "output", "o", "terminal", "Output format: terminal | json | markdown | html")
+	pf := root.PersistentFlags()
+	pf.BoolVar(&updateFlag, "update", false, "update the CLI to the latest official release")
+	pf.BoolVar(&flagDeep, "deep", false, "Enable deep scan (larger wordlist, more path probing)")
+	pf.StringVarP(&flagOut, "output", "o", "terminal", "Output format: terminal | json | markdown | html")
 	// "out" is kept as a legacy alias; "--output"/-o is the canonical spelling.
-	root.PersistentFlags().StringVar(&flagOut, "out", "terminal", "Output format (legacy alias for --output)")
-	_ = root.PersistentFlags().MarkHidden("out")
-	root.PersistentFlags().IntVar(&flagTimeout, "timeout", 5, "Per-request timeout in seconds")
-	root.PersistentFlags().StringSliceVar(&flagModules, "modules", append([]string(nil), defaultModules...), "Modules to run (comma-separated)")
-	root.PersistentFlags().StringVarP(&flagWordlist, "wordlist", "w", "", "Path to custom subdomain wordlist")
-	root.PersistentFlags().IntVarP(&flagThreads, "threads", "t", 100, "Number of concurrent threads")
-	root.PersistentFlags().BoolVarP(&flagVerbose, "verbose", "v", false, "Show all results including not-found/failed items")
-	root.PersistentFlags().BoolVarP(&flagRecursive, "recursive", "r", false, "Enable recursive subdomain brute-force on resolved subdomains")
-	root.PersistentFlags().BoolVarP(&flagMutate, "mutate", "m", false, "Enable subdomain mutation brute-force based on resolved prefixes")
-	root.PersistentFlags().IntVar(&flagDelay, "delay", 0, "Delay between requests in ms for rate limiting")
-	root.PersistentFlags().StringSliceVarP(&flagPorts, "ports", "p", []string{"80", "443"}, "Ports to probe (comma-separated)")
-	root.PersistentFlags().BoolVar(&flagStealth, "stealth", false, "Enable stealth mode: random UA, jitter, skip crt.sh, reduced concurrency")
-	root.PersistentFlags().BoolVar(&flagAuthorized, "authorized", false, "Confirm authorized testing before active PoC/exploitation runs (required for exploit module execution)")
-	root.PersistentFlags().BoolVar(&flagExploitDry, "exploit-dry-run", false, "Run the exploit phase in validation-only mode: no proof requests are executed")
-	root.PersistentFlags().StringVar(&flagOutputFile, "output-file", "", "Write output to file instead of stdout")
-	root.PersistentFlags().StringVar(&flagEvents, "events", "", "Emit JSONL event stream to stdout, stderr, or a file path (e.g. --events scan.jsonl)")
+	pf.StringVar(&flagOut, "out", "terminal", "Output format (legacy alias for --output")
+	_ = pf.MarkHidden("out")
+	root.PersistentFlags()
+	pf.IntVar(&flagTimeout, "timeout", 5, "Per-request timeout in seconds")
+	root.PersistentFlags()
+	pf.StringSliceVar(&flagModules, "modules", append([]string(nil), defaultModules...), "Modules to run (comma-separated)")
+	root.PersistentFlags()
+	pf.StringVarP(&flagWordlist, "wordlist", "w", "", "Path to custom subdomain wordlist")
+	root.PersistentFlags()
+	pf.IntVarP(&flagThreads, "threads", "t", 100, "Number of concurrent threads")
+	root.PersistentFlags()
+	pf.BoolVarP(&flagVerbose, "verbose", "v", false, "Show all results including not-found/failed items")
+	root.PersistentFlags()
+	pf.BoolVarP(&flagRecursive, "recursive", "r", false, "Enable recursive subdomain brute-force on resolved subdomains")
+	root.PersistentFlags()
+	pf.BoolVarP(&flagMutate, "mutate", "m", false, "Enable subdomain mutation brute-force based on resolved prefixes")
+	root.PersistentFlags()
+	pf.IntVar(&flagDelay, "delay", 0, "Delay between requests in ms for rate limiting")
+	root.PersistentFlags()
+	pf.StringSliceVarP(&flagPorts, "ports", "p", []string{"80", "443"}, "Ports to probe (comma-separated)")
+	root.PersistentFlags()
+	pf.BoolVar(&flagStealth, "stealth", false, "Enable stealth mode: random UA, jitter, skip crt.sh, reduced concurrency")
+	root.PersistentFlags()
+	pf.BoolVar(&flagAuthorized, "authorized", false, "Confirm authorized testing before active PoC/exploitation runs (required for exploit module execution)")
+	root.PersistentFlags()
+	pf.BoolVar(&flagExploitDry, "exploit-dry-run", false, "Run the exploit phase in validation-only mode: no proof requests are executed")
+	root.PersistentFlags()
+	pf.StringVar(&flagOutputFile, "output-file", "", "Write output to file instead of stdout")
+	root.PersistentFlags()
+	pf.StringVar(&flagEvents, "events", "", "Emit JSONL event stream to stdout, stderr, or a file path (e.g. --events scan.jsonl)")
 	root.Flags().Bool("version", false, "Print version information and exit")
 }
 
