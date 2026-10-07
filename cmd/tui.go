@@ -97,25 +97,9 @@ func (e *exitStatusError) Error() string {
 }
 
 // tuiCommands derives completion metadata from the live command tree, so
-// completion cannot drift away from the commands that actually exist. The
-// adapter exists because the shared TUI deliberately does not depend on Cobra:
-// which command framework a tool uses is that tool's decision.
+// completion cannot drift away from the commands that actually exist.
+// Per PROMPT1.md: Uses the shared CobraCommands() adapter to extract full
+// metadata (flags, examples, groups, etc.) from the Cobra tree.
 func tuiCommands(root *cobra.Command) []tui.Command {
-	return tui.CollectCommands(cobraNode{root})
-}
-
-// cobraNode adapts a Cobra command to the TUI's command-tree interface.
-type cobraNode struct{ c *cobra.Command }
-
-func (n cobraNode) Name() string      { return n.c.Name() }
-func (n cobraNode) Short() string     { return n.c.Short }
-func (n cobraNode) Hidden() bool      { return n.c.Hidden }
-func (n cobraNode) Aliases() []string { return n.c.Aliases }
-
-func (n cobraNode) Children() []tui.CommandNode {
-	out := make([]tui.CommandNode, 0, len(n.c.Commands()))
-	for _, c := range n.c.Commands() {
-		out = append(out, cobraNode{c})
-	}
-	return out
+	return tui.CobraCommands(root)
 }
