@@ -19,6 +19,25 @@ const (
 	Info     = "INFO"
 )
 
+// NoiseLevel defines the OPSEC footprint of an operation
+type NoiseLevel string
+
+const (
+	NoiseLevelPassive    NoiseLevel = "passive"    // No active probing, analysis only
+	NoiseLevelLow        NoiseLevel = "low"        // Minimal interaction, basic enumeration
+	NoiseLevelModerate   NoiseLevel = "moderate"   // Active testing, noticeable
+	NoiseLevelAggressive NoiseLevel = "aggressive" // Exploitation attempts, highly visible
+)
+
+// Tier represents the capability tier that generated a finding
+type Tier string
+
+const (
+	TierRecon       Tier = "recon"       // Tier 1: Discovery and enumeration
+	TierTechnique   Tier = "technique"   // Tier 2: Vulnerability identification
+	TierExploitation Tier = "exploitation" // Tier 3: Active exploitation
+)
+
 // Confidence levels describe how strong the evidence is that a finding is real.
 // This is independent of severity: a high-severity finding may have low
 // confidence when based only on version banners.
@@ -86,6 +105,7 @@ type Finding struct {
 	Remediation   string `json:"remediation,omitempty"`
 	ID            string `json:"id,omitempty"`
 	Status        string `json:"status,omitempty"`
+	Tier          Tier   `json:"tier,omitempty"` // Capability tier that generated this finding
 
 	// Validation fields — the detection-quality pipeline
 	ValidationState ValidationState `json:"validation_state,omitempty"`
@@ -93,6 +113,20 @@ type Finding struct {
 	OriginalStatus  int             `json:"original_status,omitempty"` // HTTP status before redirect chain
 	FinalStatus     int             `json:"final_status,omitempty"`    // HTTP status after redirect chain
 	RedirectChain   []string        `json:"redirect_chain,omitempty"`  // Human-readable redirect hops
+}
+
+// TierPrefix returns a display prefix for the finding's tier
+func (f *Finding) TierPrefix() string {
+	switch f.Tier {
+	case TierRecon:
+		return "[RECON]"
+	case TierTechnique:
+		return "[TECHNIQUE]"
+	case TierExploitation:
+		return "[EXPLOIT]"
+	default:
+		return ""
+	}
 }
 
 // OSINTResult holds a single piece of open-source intelligence discovered
