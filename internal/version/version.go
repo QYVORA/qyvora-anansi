@@ -5,11 +5,10 @@
 //
 //	go build -ldflags "-X github.com/QYVORA/qyvora-anansi/internal/version.Version=<tag> ..."
 //
-// The default Version is a semver baseline, never the bare string "dev", so
-// machine consumers always receive actionable identity. A development (not yet
-// released) build remains distinguishable from a release artifact by its
-// Commit/Date/BuildUser metadata ("none"/"unknown"), which release pipelines
-// overwrite.
+// The default Version is "dev": a development build that was never stamped.
+// Release pipelines overwrite Version/Commit/Date/BuildUser via -ldflags, so a
+// released artifact always reports its tag. An unstamped build is recognisable
+// by the sentinel values Commit="none", Date="unknown", BuildUser="unknown".
 package version
 
 import "runtime"
@@ -27,7 +26,7 @@ const (
 )
 
 var (
-	Version   = "0.1.0"
+	Version   = "dev"
 	Commit    = "none"
 	Date      = "unknown"
 	BuildUser = "unknown"

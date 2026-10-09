@@ -51,6 +51,7 @@ var (
 	flagAuthorized bool
 	flagExploitDry bool
 	flagExploitSel string
+	flagNoTui      bool
 )
 
 // newVersionCmd builds the version command.  The installer and CI use it to
@@ -300,6 +301,7 @@ func registerRootFlags(root *cobra.Command) {
 	pf.StringVar(&flagOutputFile, "output-file", "", "Write output to file instead of stdout")
 	root.PersistentFlags()
 	pf.StringVar(&flagEvents, "events", "", "Emit JSONL event stream to stdout, stderr, or a file path (e.g. --events scan.jsonl)")
+	root.Flags().BoolVar(&flagNoTui, "no-tui", false, "Disable TUI and print banner/help")
 	root.Flags().Bool("version", false, "Print version information and exit")
 }
 
@@ -398,6 +400,9 @@ func runScan(cmd *cobra.Command, args []string) error {
 		// No target means no scan to perform, so this is the interactive case.
 		// The root is passed in: the default action calls runTUI, so naming the
 		// package-level root from inside it would be an initialisation cycle.
+		if flagNoTui {
+			return cmd.Root().Help()
+		}
 		return runTUI(cmd.Root(), cmd.Context())
 	}
 	return runScanTarget(cmd.Context(), args)

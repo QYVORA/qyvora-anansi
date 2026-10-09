@@ -24,19 +24,31 @@ func releaseConfig() selfupdate.Config {
 		Repo:           "qyvora-anansi",
 		ToolName:       "Anansi",
 		CurrentVersion: func() string { return version.Version },
-		ArtifactName: func(goos, goarch string) string {
-			// The release pipeline names darwin assets with "macos".
+		// The release pipeline publishes versioned archives
+		// (anansi_<version>_<os>_<arch>.tar.gz, .zip on windows), so the
+		// asset name embeds the tag. GoReleaser strips the leading "v", and
+		// names darwin assets "macos".
+		ArtifactName: func(version, goos, goarch string) string {
 			os := goos
 			if os == "darwin" {
 				os = "macos"
 			}
-			name := fmt.Sprintf("anansi-%s-%s", os, goarch)
+			ver := strings.TrimPrefix(strings.TrimPrefix(version, "v"), "V")
+			name := fmt.Sprintf("anansi_%s_%s_%s", ver, os, goarch)
 			if goos == "windows" {
-				name += ".exe"
+				return name + ".zip"
 			}
-			return name
+			return name + ".tar.gz"
 		},
 		ChecksumAsset: func(string) string { return "checksums.txt" },
+		// The asset is an archive, not the raw binary: extract the single
+		// executable entry before installing it.
+		ArchiveFor: func(goos, goarch string) (selfupdate.ArchiveKind, string) {
+			if goos == "windows" {
+				return selfupdate.ArchiveZip, "anansi.exe"
+			}
+			return selfupdate.ArchiveTarGz, "anansi"
+		},
 	}
 }
 
