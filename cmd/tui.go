@@ -52,6 +52,7 @@ func runTUI(root *cobra.Command, ctx context.Context) error {
 	code, err := tui.Run(tui.Config{
 		Title:   "QYVORA / ANANSI",
 		Version: version.String(),
+		Banner:  tui.ToolBanner("ANANSI", "Attack Surface Intelligence Engine"),
 		Runner:  runner,
 		Out:     os.Stdout,
 	})
@@ -81,7 +82,7 @@ func commandTUI() *cobra.Command {
 			"Commands are entered at the prompt and executed through the same engine as\n" +
 			"the one-shot CLI, with the structured event stream rendered in the session.\n" +
 			"Ctrl+C stops the running command; Ctrl+D leaves.",
-		Args: cobra.NoArgs,
+		Args: usageArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runTUI(cmd.Root(), cmd.Context())
 		},

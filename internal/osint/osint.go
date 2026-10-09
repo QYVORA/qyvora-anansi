@@ -1,20 +1,23 @@
 package osint
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/QYVORA/qyvora-anansi/internal/httpclient"
 	"github.com/QYVORA/qyvora-anansi/internal/output"
 )
 
-func Run(out *output.Renderer, probeResults []output.ProbeResult, target string, timeout int, threads int, _ int, stealth bool) []output.OSINTResult {
+func Run(ctx context.Context, out *output.Renderer, probeResults []output.ProbeResult, target string, timeout int, threads int, _ int, stealth bool) []output.OSINTResult {
 	var results []output.OSINTResult
 	client := httpclient.NewFollowRedirects(timeout)
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, threads)
+	var cancelled atomic.Bool
 
 	collect := func(r output.OSINTResult) {
 		mu.Lock()
@@ -28,6 +31,9 @@ func Run(out *output.Renderer, probeResults []output.ProbeResult, target string,
 	go func() {
 		defer wg.Done()
 		defer func() { <-sem }()
+		if cancelled.Load() || ctx.Err() != nil {
+			return
+		}
 		_, whoisResults := whoisLookup(target)
 		for _, r := range whoisResults {
 			collect(r)
@@ -36,11 +42,18 @@ func Run(out *output.Renderer, probeResults []output.ProbeResult, target string,
 
 	// 2. Scrape live hosts for emails, phones, employees
 	for _, page := range extractRelevantPages(probeResults) {
+		if cancelled.Load() || ctx.Err() != nil {
+			break
+		}
 		wg.Add(1)
 		sem <- struct{}{}
 		go func(url string) {
 			defer wg.Done()
 			defer func() { <-sem }()
+			if cancelled.Load() || ctx.Err() != nil {
+				cancelled.Store(true)
+				return
+			}
 
 			body, err := fetchPage(client, url, stealth)
 			if err != nil {

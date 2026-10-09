@@ -102,7 +102,7 @@ func TestRunSkipsResolvedSubdomains(t *testing.T) {
 		{FQDN: "live.example.com", Resolved: true, Source: "wordlist"},
 		{FQDN: "dead.example.com", Resolved: false, Source: "wordlist", DeadCNAMEs: []string{"dead.example.com.github.io."}},
 	}
-	findings := Run(out, subdomains, 5, 2, 0, false)
+	findings := Run(context.Background(), out, subdomains, 5, 2, 0, false)
 	if findings == nil {
 		return // expected without network access
 	}
@@ -112,7 +112,7 @@ func TestRunSkipsResolvedSubdomains(t *testing.T) {
 // TestRunNoCandidates returns nil without touching the network.
 func TestRunNoCandidates(t *testing.T) {
 	out := output.New("text", false)
-	findings := Run(out, []output.SubdomainResult{
+	findings := Run(context.Background(), out, []output.SubdomainResult{
 		{FQDN: "live.example.com", Resolved: true, Source: "wordlist"},
 	}, 5, 2, 0, false)
 	if findings != nil {

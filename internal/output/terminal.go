@@ -95,7 +95,7 @@ func (r *Renderer) Banner(target string) {
 		return
 	}
 	fmt.Println()
-	for _, line := range strings.Split(banner.Art, "\n") {
+	for _, line := range banner.RenderCLI() {
 		fmt.Println(banner.Colorize(line))
 	}
 	fmt.Println()

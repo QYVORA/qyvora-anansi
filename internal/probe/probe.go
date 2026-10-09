@@ -178,7 +178,7 @@ func probeHost(client *http.Client, fqdn string, ports []string, delayMs int, st
 }
 
 // Run probes all hosts concurrently with a semaphore to limit parallelism.
-func Run(out *output.Renderer, hosts []string, timeout int, threads int, ports []string, delayMs int, stealth bool) ([]output.ProbeResult, error) {
+func Run(ctx context.Context, out *output.Renderer, hosts []string, timeout int, threads int, ports []string, delayMs int, stealth bool) ([]output.ProbeResult, error) {
 	client := newClient(timeout)
 	results := make([]output.ProbeResult, 0, len(hosts))
 	mu := sync.Mutex{}
@@ -198,7 +198,12 @@ func Run(out *output.Renderer, hosts []string, timeout int, threads int, ports [
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+		outer:
 			for h := range jobs {
+				if ctx.Err() != nil {
+					out.Info(fmt.Sprintf("Probing cancelled by user; %d/%d hosts checked so far", completed.Load(), len(hosts)))
+					break outer
+				}
 				rs := probeHost(client, h, ports, delayMs, stealth)
 				mu.Lock()
 				for _, r := range rs {

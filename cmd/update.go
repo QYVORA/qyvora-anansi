@@ -56,7 +56,7 @@ func newUpdatesCmd() *cobra.Command {
 	atomically; the previous binary is never touched unless every step succeeds.
 
 	No Go toolchain, Git, or source checkout is required.`,
-		Args: cobra.NoArgs,
+		Args: usageArgs(cobra.NoArgs),
 		// Update failures are runtime conditions, not usage mistakes: report the
 		// reason without burying it under the full usage block.
 		SilenceUsage: true,

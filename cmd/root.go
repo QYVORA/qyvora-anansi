@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -64,7 +65,7 @@ func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
 		Short: "Print the ANANSI CLI version",
-		Args:  cobra.NoArgs,
+		Args:  usageArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			info := version.GetInfo()
 			if strings.EqualFold(flagOut, "json") {
@@ -105,8 +106,8 @@ func newScanCmd() *cobra.Command {
 		Use:   "scan <target>",
 		Short: "Run a scan against a target",
 		Args:  usageArgs(cobra.ExactArgs(1)),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runScanTarget(args, false)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runScanTarget(cmd.Context(), args)
 		},
 	}
 }
@@ -131,10 +132,12 @@ func newRootCmd() *cobra.Command {
   ` + output.CompanyURL + `
   Built in ` + output.BuiltIn + `
 `,
-		// ArbitraryArgs keeps the root command accepting a bare positional
-		// target even though it also has subcommands (e.g. `anansi version`).
-		// Without this, cobra rejects `anansi target.com` as an unknown command.
-		Args: cobra.ArbitraryArgs,
+		// rootArgs keeps the root accepting a bare positional target even
+		// though it also has subcommands (e.g. `anansi version`), without
+		// letting an arbitrary word through: an argument that cannot be a
+		// target is command-shaped, and a command-shaped word is an unknown
+		// command, never a hostname to scan.
+		Args: rootArgs,
 	}
 
 	registerRootFlags(root)
@@ -192,6 +195,65 @@ func usageArgs(validate cobra.PositionalArgs) cobra.PositionalArgs {
 		}
 		return nil
 	}
+}
+
+// rootArgs is the root command's positional contract. The root accepts zero or
+// one positional argument, and that single argument must be shaped like a scan
+// target. cobra's default subcommand-style validation cannot be used here
+// because the root, unlike the other frameworks, takes a bare domain, so an
+// unrecognised word is classified the way an operator types it: command-shaped
+// words are unknown commands (with cobra's "did you mean this?" suggestions),
+// and anything beyond one argument is a usage error. Either way the process
+// exits 2 instead of scanning a mistyped command as if it were a hostname.
+func rootArgs(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return nil
+	}
+	if !looksLikeTargetArg(args[0]) {
+		return &usageError{unknownCommandErr(cmd, args[0])}
+	}
+	if len(args) > 1 {
+		return &usageError{fmt.Errorf("accepts at most 1 target, received %d arguments", len(args))}
+	}
+	return nil
+}
+
+// looksLikeTargetArg reports whether an argument could reasonably be a scan
+// target. A hostname has at least one dot after any scheme and path are
+// stripped; a dot at an argument's end is still host-shaped enough to let
+// runScanTarget's own validation produce its precise error. A word with no dot
+// is command-shaped, and command-shaped words are rejected as unknown commands
+// rather than scanned as targets.
+func looksLikeTargetArg(arg string) bool {
+	t := strings.ToLower(strings.TrimSpace(arg))
+	t = strings.TrimPrefix(t, "https://")
+	t = strings.TrimPrefix(t, "http://")
+	if i := strings.IndexAny(t, "/?#"); i >= 0 {
+		t = t[:i]
+	}
+	if strings.ContainsAny(t, " \t") {
+		return false
+	}
+	return strings.Contains(t, ".")
+}
+
+// unknownCommandErr reproduces cobra's unknown-command message, complete with
+// its "Did you mean this?" suggestions, so a typo like `anansi hhelp` reads the
+// same way it does on every other QYVORA tool and exits usage code 2.
+func unknownCommandErr(cmd *cobra.Command, name string) error {
+	if cmd.SuggestionsMinimumDistance <= 0 {
+		cmd.SuggestionsMinimumDistance = 2
+	}
+	suggestions := cmd.SuggestionsFor(name)
+	var b strings.Builder
+	fmt.Fprintf(&b, "unknown command %q for %q", name, cmd.CommandPath())
+	if len(suggestions) > 0 {
+		b.WriteString("\n\nDid you mean this?")
+		for _, suggestion := range suggestions {
+			fmt.Fprintf(&b, "\n\t%v", suggestion)
+		}
+	}
+	return errors.New(b.String())
 }
 
 // init registers all CLI flags with their default values and help text.
@@ -338,14 +400,15 @@ func runScan(cmd *cobra.Command, args []string) error {
 		// package-level root from inside it would be an initialisation cycle.
 		return runTUI(cmd.Root(), cmd.Context())
 	}
-	return runScanTarget(args, false)
+	return runScanTarget(cmd.Context(), args)
 }
 
 // runScanTarget validates the target, then runs each enabled module in
-// sequence, passing results between phases.  When console is true (invoked
-// from the interactive console) an interrupt prints partial results and
-// returns to the prompt instead of exiting the process.
-func runScanTarget(args []string, console bool) error {
+// sequence, passing results between phases.  The scan runs under the caller's
+// context: in the CLI that context carries SIGINT/SIGTERM, and in the in-process
+// TUI it carries the interface's own cancel, so Ctrl+C stops the work itself
+// rather than the window drawn around it.
+func runScanTarget(ctx context.Context, args []string) error {
 	target := strings.ToLower(strings.TrimSpace(args[0]))
 	target = strings.TrimPrefix(target, "https://")
 	target = strings.TrimPrefix(target, "http://")
@@ -353,6 +416,13 @@ func runScanTarget(args []string, console bool) error {
 
 	if target == "" {
 		return fmt.Errorf("invalid target: empty after parsing")
+	}
+
+	// A target is a hostname, and a hostname has at least one dot. A dotless
+	// word is command-shaped (a mistyped subcommand such as `scna` or `hhelp`),
+	// so it is rejected instead of scanned.
+	if !strings.Contains(target, ".") {
+		return &usageError{fmt.Errorf("invalid target %q: expected a domain name like example.com", args[0])}
 	}
 
 	// Basic DNS-label validation: reject IPs, empty labels, and overly long domains.
@@ -369,8 +439,24 @@ func runScanTarget(args []string, console bool) error {
 		return fmt.Errorf("invalid target: domain exceeds 253 characters (%d)", len(target))
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+	// The scan runs on a child of the caller's context. A real SIGINT or
+	// SIGTERM additionally cancels it and marks the interrupt as signal-driven,
+	// so the CLI can report partial results and exit 130; a pure context cancel
+	// (the TUI's Ctrl+C) just lets the scan wind down and return to the caller.
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+	var viaSignal atomic.Bool
+	go func() {
+		select {
+		case <-sigCh:
+			viaSignal.Store(true)
+			cancel()
+		case <-runCtx.Done():
+		}
+	}()
 
 	startTime := time.Now()
 	out := output.New(flagOut, flagVerbose)
@@ -450,7 +536,12 @@ func runScanTarget(args []string, console bool) error {
 
 	go func() {
 		select {
-		case <-ctx.Done():
+		case <-runCtx.Done():
+			if !viaSignal.Load() {
+				// The TUI or a caller cancelled the context; the scan phases
+				// wind down and this function returns partial results normally.
+				return
+			}
 			report.Duration = time.Since(startTime)
 			emit(events.LevelWarning, events.ScanInterrupted, map[string]any{
 				"duration_ms":    report.Duration.Milliseconds(),
@@ -459,9 +550,7 @@ func runScanTarget(args []string, console bool) error {
 			out.Banner(target)
 			out.Info("Scan interrupted by user. Printing partial results...")
 			out.Summary(report)
-			if !console {
-				os.Exit(130)
-			}
+			os.Exit(130)
 		case <-scanDone:
 		}
 	}()
@@ -495,7 +584,7 @@ func runScanTarget(args []string, console bool) error {
 		progressEmit("DISCOVERY")
 		done := phaseEmit("discovery", "01", "DISCOVERY")
 		out.PhaseHeader("01", "DISCOVERY", "subdomain enumeration + DNS resolution")
-		subdomains, err := discovery.Run(out, target, flagDeep, flagTimeout, flagWordlist, flagThreads, flagRecursive, flagMutate, flagDelay, flagStealth)
+		subdomains, err := discovery.Run(runCtx, out, target, flagDeep, flagTimeout, flagWordlist, flagThreads, flagRecursive, flagMutate, flagDelay, flagStealth)
 		if err != nil {
 			emit(events.LevelError, events.Error, map[string]any{"phase": "discovery", "message": err.Error()})
 			out.PhaseError("DISCOVERY", err)
@@ -512,7 +601,7 @@ func runScanTarget(args []string, console bool) error {
 		done := phaseEmit("probe", "02", "PROBE")
 		out.PhaseHeader("02", "PROBE", "HTTP/HTTPS surface mapping")
 		hosts := discovery.LiveHosts(report.Subdomains)
-		probeResults, err := probe.Run(out, hosts, flagTimeout, flagThreads, flagPorts, flagDelay, flagStealth)
+		probeResults, err := probe.Run(runCtx, out, hosts, flagTimeout, flagThreads, flagPorts, flagDelay, flagStealth)
 		if err != nil {
 			emit(events.LevelError, events.Error, map[string]any{"phase": "probe", "message": err.Error()})
 			out.PhaseError("PROBE", err)
@@ -529,7 +618,7 @@ func runScanTarget(args []string, console bool) error {
 		done := phaseEmit("tls", "03", "TLS")
 		out.PhaseHeader("03", "TLS", "certificate analysis + SAN discovery")
 		liveHosts := probe.LiveOnly(report.ProbeResults)
-		tlsResults, newSubdomains := tls.Run(liveHosts, target, flagTimeout, flagThreads, flagDelay, flagStealth)
+		tlsResults, newSubdomains := tls.Run(runCtx, liveHosts, target, flagTimeout, flagThreads, flagDelay, flagStealth)
 		report.TLSResults = tlsResults
 		if len(newSubdomains) > 0 {
 			out.Info(fmt.Sprintf("SAN discovery found %d additional subdomains", len(newSubdomains)))
@@ -549,7 +638,7 @@ func runScanTarget(args []string, console bool) error {
 		done := phaseEmit("headers", "04", "HEADERS")
 		out.PhaseHeader("04", "HEADERS", "security header audit")
 		liveHosts := probe.LiveOnly(report.ProbeResults)
-		headerResults := headers.Run(report.ProbeResults, liveHosts, flagTimeout, flagThreads, flagDelay, flagStealth)
+		headerResults := headers.Run(runCtx, report.ProbeResults, liveHosts, flagTimeout, flagThreads, flagDelay, flagStealth)
 		report.HeaderResults = headerResults
 		out.HeadersTable(headerResults)
 		for _, r := range headerResults {
@@ -565,7 +654,7 @@ func runScanTarget(args []string, console bool) error {
 		done := phaseEmit("paths", "05", "PATHS")
 		out.PhaseHeader("05", "PATHS", "exposed endpoint + file detection")
 		liveHosts := probe.LiveOnly(report.ProbeResults)
-		pathFindings := paths.Run(out, liveHosts, flagDeep, flagTimeout, flagThreads, flagDelay, flagStealth)
+		pathFindings := paths.Run(runCtx, out, liveHosts, flagDeep, flagTimeout, flagThreads, flagDelay, flagStealth)
 		findingsEmit(pathFindings)
 		report.Findings = append(report.Findings, pathFindings...)
 		out.FindingsBlock("PATHS", pathFindings)
@@ -578,7 +667,7 @@ func runScanTarget(args []string, console bool) error {
 		done := phaseEmit("tech", "06", "TECH-STACK")
 		out.PhaseHeader("06", "TECH-STACK", "CMS fingerprinting + version-specific vulnerability audit")
 		liveHosts := probe.LiveOnly(report.ProbeResults)
-		techResults := techstack.Run(out, liveHosts, flagTimeout, flagThreads, flagDelay, flagStealth)
+		techResults := techstack.Run(runCtx, out, liveHosts, flagTimeout, flagThreads, flagDelay, flagStealth)
 		report.TechResults = techResults
 		for _, tr := range techResults {
 			findingsEmit(tr.Findings)
@@ -593,7 +682,7 @@ func runScanTarget(args []string, console bool) error {
 		progressEmit("TAKEOVER")
 		done := phaseEmit("takeover", "07", "TAKEOVER")
 		out.PhaseHeader("07", "TAKEOVER", "dangling CNAME subdomain takeover detection")
-		takeoverFindings := takeover.Run(out, report.Subdomains, flagTimeout, flagThreads, flagDelay, flagStealth)
+		takeoverFindings := takeover.Run(runCtx, out, report.Subdomains, flagTimeout, flagThreads, flagDelay, flagStealth)
 		findingsEmit(takeoverFindings)
 		report.Findings = append(report.Findings, takeoverFindings...)
 		out.FindingsBlock("TAKEOVER", takeoverFindings)
@@ -605,7 +694,7 @@ func runScanTarget(args []string, console bool) error {
 		progressEmit("OSINT")
 		done := phaseEmit("osint", "08", "OSINT")
 		out.PhaseHeader("08", "OSINT", "organisation recon — emails, phones, WHOIS, employees")
-		osintResults := osint.Run(out, report.ProbeResults, target, flagTimeout, flagThreads, flagDelay, flagStealth)
+		osintResults := osint.Run(runCtx, out, report.ProbeResults, target, flagTimeout, flagThreads, flagDelay, flagStealth)
 		report.OSINTResults = osintResults
 		out.OSINTTable(osintResults)
 		done()
@@ -633,7 +722,7 @@ func runScanTarget(args []string, console bool) error {
 		progressEmit("EXPLOIT")
 		done := phaseEmit("exploit", "10", "EXPLOIT")
 		out.PhaseHeader("10", "EXPLOIT", "controlled PoC validation and exploitation of findings")
-		report.ExploitResults = runExploitPhase(out, report, emit)
+		report.ExploitResults = runExploitPhase(runCtx, out, report, emit)
 		out.ExploitResultsBlock(report.ExploitResults)
 		done()
 	}

@@ -11,6 +11,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/QYVORA/qyvora-anansi/internal/dnscache"
@@ -158,13 +159,18 @@ func tlsVersionName(v uint16) string {
 // Run probes TLS on all hosts that responded to HTTPS and returns:
 //  1. TLS analysis results (certificate info, expiry, protocol strength)
 //  2. New subdomains discovered from certificate SANs
-func Run(liveProbes []output.ProbeResult, targetDomain string, timeout int, threads int, delayMs int, stealth bool) ([]output.TLSResult, []output.SubdomainResult) {
+func Run(ctx context.Context, liveProbes []output.ProbeResult, targetDomain string, timeout int, threads int, delayMs int, stealth bool) ([]output.TLSResult, []output.SubdomainResult) {
 	results := make([]output.TLSResult, 0)
 	mu := sync.Mutex{}
 	sem := make(chan struct{}, threads)
 	var wg sync.WaitGroup
+	var cancelled atomic.Bool
 
 	for _, p := range liveProbes {
+		if cancelled.Load() || ctx.Err() != nil {
+			cancelled.Store(true)
+			continue
+		}
 		if !strings.HasPrefix(p.URL, "https://") {
 			mu.Lock()
 			results = append(results, output.TLSResult{
@@ -204,6 +210,9 @@ func Run(liveProbes []output.ProbeResult, targetDomain string, timeout int, thre
 	var newSubdomains []output.SubdomainResult
 	seen := map[string]struct{}{}
 	for _, r := range results {
+		if ctx.Err() != nil {
+			break
+		}
 		for _, san := range r.SANs {
 			san = strings.ToLower(san)
 			if !strings.HasSuffix(san, "."+targetDomain) {

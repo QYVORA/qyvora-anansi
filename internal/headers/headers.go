@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/QYVORA/qyvora-anansi/internal/assets"
@@ -159,14 +160,19 @@ func auditURL(client *http.Client, url string, stealth bool) *output.HeaderResul
 }
 
 // Run audits security headers for all live probe results concurrently.
-func Run(_ []output.ProbeResult, liveHosts []output.ProbeResult, timeout int, threads int, delayMs int, stealth bool) []output.HeaderResult {
+func Run(ctx context.Context, _ []output.ProbeResult, liveHosts []output.ProbeResult, timeout int, threads int, delayMs int, stealth bool) []output.HeaderResult {
 	results := make([]output.HeaderResult, 0, len(liveHosts))
 	client := httpclient.NewFollowRedirects(timeout)
 	var mu sync.Mutex
 	sem := make(chan struct{}, threads)
 	var wg sync.WaitGroup
+	var cancelled atomic.Bool
 
 	for _, p := range liveHosts {
+		if cancelled.Load() || ctx.Err() != nil {
+			cancelled.Store(true)
+			continue
+		}
 		wg.Add(1)
 		sem <- struct{}{}
 		go func(pr output.ProbeResult) {

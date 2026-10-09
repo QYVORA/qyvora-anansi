@@ -1,6 +1,7 @@
 package headers
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -146,7 +147,7 @@ func TestRunConcurrent(t *testing.T) {
 		{URL: srv.URL, IsAlive: true},
 		{URL: srv.URL, IsAlive: true},
 	}
-	results := Run(nil, live, 5, 4, 0, false)
+	results := Run(context.Background(), nil, live, 5, 4, 0, false)
 	if len(results) != 2 {
 		t.Errorf("Run returned %d results, want 2", len(results))
 	}

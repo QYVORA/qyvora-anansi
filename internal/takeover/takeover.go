@@ -117,11 +117,14 @@ func resolveCNAMEs(fqdn string) []string {
 // Run checks all unresolved subdomains for takeover candidates.  It uses
 // dead CNAMEs gathered during discovery and attempts to confirm the
 // vulnerability by checking the response body for known service fingerprints.
-func Run(out *output.Renderer, subdomains []output.SubdomainResult, timeout int, threads int, delayMs int, stealth bool) []output.Finding {
+func Run(ctx context.Context, out *output.Renderer, subdomains []output.SubdomainResult, timeout int, threads int, delayMs int, stealth bool) []output.Finding {
 	client := httpclient.NewNoRedirect(timeout)
 
 	var candidates []output.SubdomainResult
 	for _, s := range subdomains {
+		if ctx.Err() != nil {
+			return nil
+		}
 		if !s.Resolved {
 			if len(s.DeadCNAMEs) > 0 || s.Source == output.SourceSAN {
 				candidates = append(candidates, s)
@@ -142,6 +145,10 @@ func Run(out *output.Renderer, subdomains []output.SubdomainResult, timeout int,
 
 	var completed atomic.Int64
 	for _, s := range candidates {
+		if ctx.Err() != nil {
+			out.Info(fmt.Sprintf("Takeover check cancelled by user; %d/%d candidates checked so far", completed.Load(), len(candidates)))
+			break
+		}
 		wg.Add(1)
 		sem <- struct{}{}
 		go func(sub output.SubdomainResult) {

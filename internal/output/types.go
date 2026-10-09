@@ -33,8 +33,8 @@ const (
 type Tier string
 
 const (
-	TierRecon       Tier = "recon"       // Tier 1: Discovery and enumeration
-	TierTechnique   Tier = "technique"   // Tier 2: Vulnerability identification
+	TierRecon        Tier = "recon"        // Tier 1: Discovery and enumeration
+	TierTechnique    Tier = "technique"    // Tier 2: Vulnerability identification
 	TierExploitation Tier = "exploitation" // Tier 3: Active exploitation
 )
 

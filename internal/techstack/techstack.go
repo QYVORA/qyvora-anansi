@@ -155,7 +155,7 @@ func loadPathRules(filename string) []pathRule {
 // processed concurrently, bounded by the thread semaphore.  The homepage is
 // fetched once and reused for fingerprinting, version extraction, and plugin
 // discovery to minimise redundant requests.
-func Run(out *output.Renderer, liveHosts []output.ProbeResult, timeout int, threads int, delayMs int, stealth bool) []output.TechResult {
+func Run(ctx context.Context, out *output.Renderer, liveHosts []output.ProbeResult, timeout int, threads int, delayMs int, stealth bool) []output.TechResult {
 	load()
 
 	hosts := dedupeHosts(liveHosts)
@@ -186,7 +186,12 @@ func Run(out *output.Renderer, liveHosts []output.ProbeResult, timeout int, thre
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+		outer:
 			for host := range jobs {
+				if ctx.Err() != nil {
+					out.Info(fmt.Sprintf("Tech-stack audit cancelled by user; %d/%d hosts audited so far", completed.Load(), len(hosts)))
+					break outer
+				}
 				delay := output.JitterDelay(delayMs, stealth)
 				if delay > 0 {
 					time.Sleep(delay)

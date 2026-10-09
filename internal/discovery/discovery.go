@@ -49,8 +49,8 @@ type resolveJob struct {
 // fetchCrtSh queries the crt.sh Certificate Transparency log for all
 // certificates matching "%.target.com" and returns deduplicated DNS names.
 // A doubled timeout is used because crt.sh can be slow.
-func fetchCrtSh(target string, timeout int) ([]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout*2)*time.Second)
+func fetchCrtSh(ctx context.Context, target string, timeout int) ([]string, error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Duration(timeout*2)*time.Second)
 	defer cancel()
 	client := httpclient.NewFollowRedirects(timeout)
 	url := fmt.Sprintf("https://crt.sh/?q=%%25.%s&output=json", target)
@@ -135,7 +135,7 @@ func isWildcardResult(ips []string, wildcardMap map[string]struct{}) bool {
 // concurrency, timeout, and optional inter-request delay.  Wildcard
 // filtering is applied to wordlist-sourced results when wildcardMap is
 // non-empty.  Results are appended to the provided slice (thread-safe).
-func resolveMany(jobs []resolveJob, results *[]output.SubdomainResult, threads, timeout, delayMs int, wildcardMap map[string]struct{}, stealth bool, label string, out *output.Renderer) {
+func resolveMany(ctx context.Context, jobs []resolveJob, results *[]output.SubdomainResult, threads, timeout, delayMs int, wildcardMap map[string]struct{}, stealth bool, label string, out *output.Renderer) {
 	if len(jobs) == 0 {
 		return
 	}
@@ -157,7 +157,12 @@ func resolveMany(jobs []resolveJob, results *[]output.SubdomainResult, threads, 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+		outer:
 			for j := range jobsCh {
+				if ctx.Err() != nil {
+					out.Info(fmt.Sprintf("%s cancelled by user; %d/%d hostnames resolved so far", label, completed.Load(), len(jobs)))
+					break outer
+				}
 				delay := output.JitterDelay(delayMs, stealth)
 				if delay > 0 {
 					time.Sleep(delay)
@@ -227,10 +232,10 @@ func buildCandidateList(crtDomains []string, wordlist []string, target string) [
 //  3. Generate candidates from wordlist
 //  4. Resolve all candidates concurrently
 //  5. Optionally run recursive and mutation brute-force
-func Run(out *output.Renderer, target string, deep bool, timeout int, customWordlist string, threads int, recursive bool, mutate bool, delayMs int, stealth bool) ([]output.SubdomainResult, error) {
+func Run(ctx context.Context, out *output.Renderer, target string, deep bool, timeout int, customWordlist string, threads int, recursive bool, mutate bool, delayMs int, stealth bool) ([]output.SubdomainResult, error) {
 	// -- Wildcard detection ------------------------------------------------
 	out.Info("Detecting DNS wildcard...")
-	ctxWildcard, cancelWildcard := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	ctxWildcard, cancelWildcard := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
 	wildcardIPs := detectWildcard(ctxWildcard, target)
 	cancelWildcard()
 
@@ -246,7 +251,7 @@ func Run(out *output.Renderer, target string, deep bool, timeout int, customWord
 		out.Info("Stealth mode: skipping crt.sh query")
 	} else {
 		out.Info("Querying crt.sh (Certificate Transparency)...")
-		crtDomains, _ = fetchCrtSh(target, timeout)
+		crtDomains, _ = fetchCrtSh(ctx, target, timeout)
 		out.Info(fmt.Sprintf("crt.sh found %d potential subdomains", len(crtDomains)))
 	}
 
@@ -259,16 +264,16 @@ func Run(out *output.Renderer, target string, deep bool, timeout int, customWord
 
 	// -- Resolve all candidates concurrently -------------------------------
 	results := make([]output.SubdomainResult, 0, len(jobs))
-	resolveMany(jobs, &results, threads, timeout, delayMs, wildcardMap, stealth, "Resolving", out)
+	resolveMany(ctx, jobs, &results, threads, timeout, delayMs, wildcardMap, stealth, "Resolving", out)
 
 	// -- Recursive brute-force ---------------------------------------------
 	if recursive {
-		runRecursive(&results, wordlist, target, threads, timeout, delayMs, wildcardMap, stealth, out)
+		runRecursive(ctx, &results, wordlist, target, threads, timeout, delayMs, wildcardMap, stealth, out)
 	}
 
 	// -- Mutation brute-force ----------------------------------------------
 	if mutate {
-		runMutation(&results, target, threads, timeout, delayMs, wildcardMap, stealth, out)
+		runMutation(ctx, &results, target, threads, timeout, delayMs, wildcardMap, stealth, out)
 	}
 
 	return results, nil
@@ -276,7 +281,7 @@ func Run(out *output.Renderer, target string, deep bool, timeout int, customWord
 
 // runRecursive resolves every wordlist prefix under each already-resolved
 // subdomain to discover deeper nested subdomains.
-func runRecursive(results *[]output.SubdomainResult, wordlist []string, target string, threads, timeout, delayMs int, wildcardMap map[string]struct{}, stealth bool, out *output.Renderer) {
+func runRecursive(ctx context.Context, results *[]output.SubdomainResult, wordlist []string, target string, threads, timeout, delayMs int, wildcardMap map[string]struct{}, stealth bool, out *output.Renderer) {
 	var resolvedSubs []string
 	for _, r := range *results {
 		if r.Resolved && r.FQDN != target {
@@ -305,13 +310,13 @@ func runRecursive(results *[]output.SubdomainResult, wordlist []string, target s
 		}
 	}
 
-	resolveMany(recJobs, results, threads, timeout, delayMs, wildcardMap, stealth, "Recursive resolving", out)
+	resolveMany(ctx, recJobs, results, threads, timeout, delayMs, wildcardMap, stealth, "Recursive resolving", out)
 }
 
 // runMutation applies prefix-level mutations (hyphenation, number
 // increments, cross-combination) to already-resolved subdomains and
 // resolves the resulting candidates.
-func runMutation(results *[]output.SubdomainResult, target string, threads, timeout, delayMs int, wildcardMap map[string]struct{}, stealth bool, out *output.Renderer) {
+func runMutation(ctx context.Context, results *[]output.SubdomainResult, target string, threads, timeout, delayMs int, wildcardMap map[string]struct{}, stealth bool, out *output.Renderer) {
 	var resolvedSubs []string
 	for _, r := range *results {
 		if r.Resolved && r.FQDN != target {
@@ -339,7 +344,7 @@ func runMutation(results *[]output.SubdomainResult, target string, threads, time
 		}
 	}
 
-	resolveMany(mutJobs, results, threads, timeout, delayMs, wildcardMap, stealth, "Mutation resolving", out)
+	resolveMany(ctx, mutJobs, results, threads, timeout, delayMs, wildcardMap, stealth, "Mutation resolving", out)
 }
 
 // MutateSubdomains generates target-specific subdomain mutations from

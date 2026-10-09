@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -176,5 +177,81 @@ func TestScanSubcommandExists(t *testing.T) {
 	root := newRootCmd()
 	if _, _, err := root.Find([]string{"scan"}); err != nil {
 		t.Fatalf("scan subcommand not found: %v", err)
+	}
+}
+
+// execCode runs the CLI tree through ExecuteArgsContext -- the same entry the
+// binary and the in-process TUI use -- and returns the process exit code.
+func execCode(t *testing.T, args ...string) int {
+	t.Helper()
+	return ExecuteArgsContext(context.Background(), args)
+}
+
+// TestRootRejectsUnknownCommand guards the core issue: a mistyped command must
+// be reported as a usage error (exit 2), never re-scanned as a target domain.
+func TestRootRejectsUnknownCommand(t *testing.T) {
+	for _, args := range [][]string{
+		{"hhelp"},
+		{"scna"},
+		{"scna", "example.com"},
+		{"foo"},
+	} {
+		if code := execCode(t, args...); code != 2 {
+			t.Errorf("execute %v: exit = %d, want 2 (usage error, not a scan)", args, code)
+		}
+	}
+}
+
+// TestRootSuggestsForMistypedCommand checks that a typo close to a real command
+// carries cobra's "did you mean this?" hint, like every other QYVORA tool.
+func TestRootSuggestsForMistypedCommand(t *testing.T) {
+	root := newRootCmd()
+	root.SetArgs([]string{"scna"})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected unknown-command error, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown command") {
+		t.Fatalf("expected unknown-command error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "Did you mean this?") || !strings.Contains(err.Error(), "scan") {
+		t.Fatalf("expected a suggestion for 'scan', got: %v", err)
+	}
+}
+
+// TestRootRejectsDotlessTarget checks that a command-shaped word is an unknown
+// command even when it reaches the target path explicitly via `scan`.
+func TestRootRejectsDotlessTarget(t *testing.T) {
+	if code := execCode(t, "example"); code != 2 {
+		t.Errorf("bare dotless target: exit = %d, want 2", code)
+	}
+	root := newRootCmd()
+	root.SetArgs([]string{"scan", "example"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "domain name") {
+		t.Errorf("scan with dotless target: got %v, want domain-name error", err)
+	}
+}
+
+// TestRootRejectsExtraArguments checks that a valid target followed by further
+// positional arguments is a usage error rather than a silently dropped tail.
+func TestRootRejectsExtraArguments(t *testing.T) {
+	if code := execCode(t, "example.com", "extra"); code != 2 {
+		t.Errorf("target plus extra argument: exit = %d, want 2", code)
+	}
+}
+
+// TestSubcommandsRejectExtraArguments checks the version/tui/updates commands
+// reject stray positionals with exit code 2, not the runtime-code 1 that a bare
+// cobra.NoArgs would produce.
+func TestSubcommandsRejectExtraArguments(t *testing.T) {
+	for _, args := range [][]string{
+		{"version", "extra"},
+		{"tui", "extra"},
+		{"updates", "extra"},
+	} {
+		if code := execCode(t, args...); code != 2 {
+			t.Errorf("execute %v: exit = %d, want 2", args, code)
+		}
 	}
 }

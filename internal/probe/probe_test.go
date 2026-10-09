@@ -1,6 +1,7 @@
 package probe
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -94,7 +95,7 @@ func TestLiveOnly(t *testing.T) {
 
 func TestRunEmptyHosts(t *testing.T) {
 	// Guard against panics/division-by-zero when no hosts survive discovery.
-	results, err := Run(output.New("terminal", false), nil, 1, 0, []string{"80"}, 0, false)
+	results, err := Run(context.Background(), output.New("terminal", false), nil, 1, 0, []string{"80"}, 0, false)
 	if err != nil {
 		t.Fatalf("Run with empty hosts returned error: %v", err)
 	}
@@ -105,7 +106,7 @@ func TestRunEmptyHosts(t *testing.T) {
 
 func TestRunEmptyPorts(t *testing.T) {
 	// A missing --ports value must not cause a nil map / slice panic.
-	results, err := Run(output.New("terminal", false), []string{"example.com"}, 1, 2, nil, 0, false)
+	results, err := Run(context.Background(), output.New("terminal", false), []string{"example.com"}, 1, 2, nil, 0, false)
 	if err != nil {
 		t.Fatalf("Run with nil ports returned error: %v", err)
 	}

@@ -240,7 +240,7 @@ func extraPathsFromRobots(client *http.Client, baseURL string) []pathRule {
 // A per-host 404 baseline is established first, then each path rule is
 // checked against the host in a single flat worker pool — avoiding the
 // nested-goroutine pattern that previously caused a race condition.
-func Run(out *output.Renderer, liveHosts []output.ProbeResult, deep bool, timeout int, threads int, delayMs int, stealth bool) []output.Finding {
+func Run(ctx context.Context, out *output.Renderer, liveHosts []output.ProbeResult, deep bool, timeout int, threads int, delayMs int, stealth bool) []output.Finding {
 	client := httpclient.NewNoRedirect(timeout)
 
 	// Create validator with proper user agent
@@ -267,12 +267,18 @@ func Run(out *output.Renderer, liveHosts []output.ProbeResult, deep bool, timeou
 	// Build a per-host baseline cache to avoid re-fetching for every rule.
 	baselineCache := make(map[string]*validation.BaselineProfile, len(liveHosts))
 	for _, host := range liveHosts {
+		if ctx.Err() != nil {
+			return nil
+		}
 		baselineCache[host.URL] = getBaseline(validator, host.URL)
 	}
 
 	// Discover per-host extra paths from robots.txt.
 	extraByHost := make(map[string][]pathRule, len(liveHosts))
 	for _, host := range liveHosts {
+		if ctx.Err() != nil {
+			return nil
+		}
 		if extras := extraPathsFromRobots(client, host.URL); len(extras) > 0 {
 			extraByHost[host.URL] = extras
 		}
@@ -321,7 +327,12 @@ func Run(out *output.Renderer, liveHosts []output.ProbeResult, deep bool, timeou
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+		outer:
 			for p := range jobs {
+				if ctx.Err() != nil {
+					out.Info(fmt.Sprintf("Path probing cancelled by user; %d/%d checks run so far", completed.Load(), totalJobs))
+					break outer
+				}
 				delay := output.JitterDelay(delayMs, stealth)
 				if delay > 0 {
 					time.Sleep(delay)
