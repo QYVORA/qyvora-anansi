@@ -148,7 +148,7 @@ findings produced by earlier phases and **actively proves** them against the
 authorized target with live HTTP requests, capturing request/response pairs
 as evidence:
 
-- **Six built-in modules** — `web/http-trace` (TRACE echo), `web/http-methods`
+- **Eight built-in modules** — `web/http-trace` (TRACE echo), `web/http-methods`
   (unexpected method acceptance), `web/path-traversal` (documented traversal),
   `web/open-redirect` (server-side redirect confirmation), `web/reflected-input`
   (self-reflection in the response), and `web/directory-listing`
