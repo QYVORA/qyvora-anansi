@@ -12,6 +12,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/QYVORA/qyvora-tui"
 	"github.com/fatih/color"
 
 	"github.com/QYVORA/qyvora-anansi/internal/banner"
@@ -91,7 +92,11 @@ func (r *Renderer) Verbose(msg string) {
 // win over the terminal's: a quiet or stealth run prints nothing here even on a
 // terminal that would happily draw the accent.
 func (r *Renderer) Banner(target string) {
-	if r.isQuiet() || r.stealth {
+	// Suppressed while the shared TUI is executing the command: the console's
+	// header band already carries the identity, and printing it here would
+	// duplicate it inline in the transcript. Standalone runs (the default when
+	// the signal is absent) keep the banner exactly as before.
+	if tui.InTUISession() || r.isQuiet() || r.stealth {
 		return
 	}
 	fmt.Println()

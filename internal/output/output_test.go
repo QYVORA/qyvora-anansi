@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/QYVORA/qyvora-anansi/internal/banner"
+	"github.com/QYVORA/qyvora-tui"
 )
 
 func TestComputeRisk(t *testing.T) {
@@ -344,5 +345,17 @@ func TestBannerSkippedInStealthMode(t *testing.T) {
 	r := New("terminal", false).WithStealth()
 	if got := captureStdout(t, func() { r.Banner("example.com") }); got != "" {
 		t.Errorf("stealth renderer wrote %d bytes, want 0", len(got))
+	}
+}
+
+// TestBannerSkippedInTUISession guards the duplicate-banner fix: when the
+// shared console's runner is executing this command it sets the session signal,
+// and the banner must not be printed again inline. Standalone runs (the signal
+// absent, covered by TestBannerDrawsTheArt) keep the banner.
+func TestBannerSkippedInTUISession(t *testing.T) {
+	t.Setenv(tui.TUISessionEnv, "1")
+	r := &Renderer{format: "terminal"}
+	if got := captureStdout(t, func() { r.Banner("example.com") }); got != "" {
+		t.Errorf("banner written inside a TUI session (%d bytes), want 0", len(got))
 	}
 }
