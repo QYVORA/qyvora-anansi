@@ -51,7 +51,6 @@ var (
 	flagAuthorized bool
 	flagExploitDry bool
 	flagExploitSel string
-	flagNoTui      bool
 )
 
 // newVersionCmd builds the version command.  The installer and CI use it to
@@ -301,7 +300,6 @@ func registerRootFlags(root *cobra.Command) {
 	pf.StringVar(&flagOutputFile, "output-file", "", "Write output to file instead of stdout")
 	root.PersistentFlags()
 	pf.StringVar(&flagEvents, "events", "", "Emit JSONL event stream to stdout, stderr, or a file path (e.g. --events scan.jsonl)")
-	root.Flags().BoolVar(&flagNoTui, "no-tui", false, "Disable TUI and print banner/help")
 	root.Flags().Bool("version", false, "Print version information and exit")
 }
 
