@@ -1,4 +1,7 @@
-//go:build !windows
+//go:build ignore
+
+// Disabled together with the TUI (cmd/tui.go); the terminal-width helper was
+// only used by the interactive interface.
 
 package cmd
 

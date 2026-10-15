@@ -241,13 +241,12 @@ func TestRootRejectsExtraArguments(t *testing.T) {
 	}
 }
 
-// TestSubcommandsRejectExtraArguments checks the version/tui/updates commands
+// TestSubcommandsRejectExtraArguments checks the version/updates commands
 // reject stray positionals with exit code 2, not the runtime-code 1 that a bare
 // cobra.NoArgs would produce.
 func TestSubcommandsRejectExtraArguments(t *testing.T) {
 	for _, args := range [][]string{
 		{"version", "extra"},
-		{"tui", "extra"},
 		{"updates", "extra"},
 	} {
 		if code := execCode(t, args...); code != 2 {

@@ -307,18 +307,14 @@ func registerRootFlags(root *cobra.Command) {
 
 // newRootCmdFlags attaches anansi's flags to a freshly built root. The
 // defaults are declared once here and reapplied to every tree, which is what
-// keeps one TUI command's flags out of the next.
+// keeps one command tree's flags out of the next.
 func attachSubcommands(root *cobra.Command) *cobra.Command {
 	// The default action is assigned here rather than in the literal above.
 	// Go's initialisation dependency analysis follows references through
-	// function bodies: the default action reaches runTUI, which needs the root,
+	// function bodies: the default action reaches runScan, which needs the root,
 	// so naming it inside the root's own initialiser is a cycle. A function
 	// body is not part of initialisation.
 	root.RunE = runScan
-	// The TUI must be a real subcommand, not only the default action. anansi's
-	// root takes a bare positional target, so without this `anansi tui` would
-	// read "tui" as a hostname and start scanning it.
-	root.AddCommand(commandTUI())
 	root.AddCommand(newVersionCmd())
 	root.AddCommand(newScanCmd())
 	root.AddCommand(newUpdatesCmd())
@@ -397,13 +393,11 @@ func runScan(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 	if len(args) == 0 {
-		// No target means no scan to perform, so this is the interactive case.
-		// The root is passed in: the default action calls runTUI, so naming the
-		// package-level root from inside it would be an initialisation cycle.
-		if flagNoTui {
-			return cmd.Root().Help()
-		}
-		return runTUI(cmd.Root(), cmd.Context())
+		// No target means no scan to perform. The bare invocation is one-shot
+		// CLI only, so print usage rather than drop into an interactive
+		// interface. The per-tool TUI is disabled pending the redirect of
+		// qyvora-tui to the future AI orchestration layer.
+		return cmd.Root().Help()
 	}
 	return runScanTarget(cmd.Context(), args)
 }
