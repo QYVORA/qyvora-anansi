@@ -138,6 +138,11 @@ func newRootCmd() *cobra.Command {
 		// target is command-shaped, and a command-shaped word is an unknown
 		// command, never a hostname to scan.
 		Args: rootArgs,
+		Example: "  anansi example.com\n" +
+			"  anansi recon scan example.com\n" +
+			"  anansi exploit list\n" +
+			"  anansi exploit run sqli-url example.com/page?id=1 --authorized\n" +
+			"  anansi version",
 	}
 
 	registerRootFlags(root)
@@ -312,13 +317,61 @@ func attachSubcommands(root *cobra.Command) *cobra.Command {
 	// function bodies: the default action reaches runScan, which needs the root,
 	// so naming it inside the root's own initialiser is a cycle. A function
 	// body is not part of initialisation.
+	//
+	// The bare `anansi <target>` form is anansi's signature UX and is kept as
+	// the default action; the tier grammar adds `recon scan` as the canonical
+	// spelling of the same operation.
 	root.RunE = runScan
-	root.AddCommand(newVersionCmd())
-	root.AddCommand(newScanCmd())
-	root.AddCommand(newUpdatesCmd())
-	root.AddCommand(newCompletionCmd())
-	root.AddCommand(newExploitCmd())
+
+	// Tier grammar: <tool> <tier> <module> [<action>] [target] [flags], where
+	// tier is recon, exploit or report. All three tiers always exist so the
+	// shape is discoverable from help; a tier with no modules explains itself
+	// rather than rendering as a blank parent.
+	recon := &cobra.Command{
+		Use:   "recon",
+		Short: "discovery and collection commands",
+	}
+	recon.AddCommand(newScanCmd())
+
+	// The exploit tier is anansi's PoC layer: list, inspect and run modules.
+	// It was already a top-level command with these subcommands, so every
+	// existing `anansi exploit ...` path is unchanged under the tier grammar.
+	exploit := newExploitCmd()
+
+	// Anansi writes its report during a scan (--output-file); it has no
+	// separate report-rendering module, so the tier explains itself.
+	reportT := &cobra.Command{
+		Use:   "report",
+		Short: "inspect and render assessment output",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return &usageError{fmt.Errorf("report has no modules in this framework (reports are written during a scan via --output-file)")}
+		},
+	}
+
+	root.AddCommand(recon, exploit, reportT)
+
+	// Flat utility verbs, shared by every QYVORA framework.
+	root.AddCommand(
+		newVersionCmd(),
+		newUpdatesCmd(),
+		newCompletionCmd(),
+	)
+
+	// Backward-compat aliases: the tier grammar is canonical, but the old
+	// top-level paths remain (hidden, so help only shows the new shape).
+	root.AddCommand(
+		hiddenAlias("scan", newScanCmd()),
+	)
 	return root
+}
+
+// hiddenAlias returns c renamed to name and marked hidden. It registers the
+// pre-tier-grammar path for a command that now lives under a tier, so existing
+// invocations and scripts keep working while help advertises only the new shape.
+func hiddenAlias(name string, c *cobra.Command) *cobra.Command {
+	c.Use = name
+	c.Hidden = true
+	return c
 }
 
 // newCompletionCmd emits a shell completion script for bash/zsh/fish/powershell,

@@ -202,11 +202,14 @@ func TestRootRejectsUnknownCommand(t *testing.T) {
 	}
 }
 
-// TestRootSuggestsForMistypedCommand checks that a typo close to a real command
-// carries cobra's "did you mean this?" hint, like every other QYVORA tool.
+// TestRootSuggestsForMistypedCommand checks that a typo close to a real
+// command carries cobra's "did you mean this?" hint, like every other QYVORA
+// tool. The visible commands are the tier grammar's verbs; the pre-grammar
+// `scan` path is now a hidden alias, and cobra does not suggest hidden
+// commands, so the hint is exercised against a visible tier.
 func TestRootSuggestsForMistypedCommand(t *testing.T) {
 	root := newRootCmd()
-	root.SetArgs([]string{"scna"})
+	root.SetArgs([]string{"reco"})
 	err := root.Execute()
 	if err == nil {
 		t.Fatal("expected unknown-command error, got nil")
@@ -214,8 +217,8 @@ func TestRootSuggestsForMistypedCommand(t *testing.T) {
 	if !strings.Contains(err.Error(), "unknown command") {
 		t.Fatalf("expected unknown-command error, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "Did you mean this?") || !strings.Contains(err.Error(), "scan") {
-		t.Fatalf("expected a suggestion for 'scan', got: %v", err)
+	if !strings.Contains(err.Error(), "Did you mean this?") || !strings.Contains(err.Error(), "recon") {
+		t.Fatalf("expected a suggestion for 'recon', got: %v", err)
 	}
 }
 
