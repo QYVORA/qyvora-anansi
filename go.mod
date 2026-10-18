@@ -3,6 +3,7 @@ module github.com/QYVORA/qyvora-anansi
 go 1.26.5
 
 require (
+	github.com/QYVORA/qyvora-script v0.1.0
 	github.com/QYVORA/qyvora-tui v0.11.0
 	github.com/fatih/color v1.16.0
 	github.com/muesli/termenv v0.16.0
@@ -37,3 +38,5 @@ require (
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	golang.org/x/text v0.3.8 // indirect
 )
+
+replace github.com/QYVORA/qyvora-script => ../../shared/qyvora-script

@@ -272,6 +272,7 @@ func registerRootFlags(root *cobra.Command) {
 	})
 	pf := root.PersistentFlags()
 	pf.BoolVar(&updateFlag, "update", false, "update the CLI to the latest official release")
+	pf.BoolVar(&allowShellOut, "allow-shellout", false, "allow scripts to use exec/run.cmd shell-out (also via QYVORA_ALLOW_SHELLOUT=1)")
 	pf.BoolVar(&flagDeep, "deep", false, "Enable deep scan (larger wordlist, more path probing)")
 	pf.StringVarP(&flagOut, "output", "o", "terminal", "Output format: terminal | json | markdown | html")
 	// "out" is kept as a legacy alias; "--output"/-o is the canonical spelling.
@@ -355,6 +356,7 @@ func attachSubcommands(root *cobra.Command) *cobra.Command {
 		newVersionCmd(),
 		newUpdatesCmd(),
 		newCompletionCmd(),
+		newScriptCmd(),
 	)
 
 	// Backward-compat aliases: the tier grammar is canonical, but the old
