@@ -46,4 +46,4 @@ anansi <tier> <module> [<action>] [target] [flags]
 |---------|---------|
 | `anansi scan` | Run a scan against a target |
 | `anansi tui` | start the interactive terminal application |
-
+| `docs script <file>` | Run a `.qs` script with the shared scripting engine (`run`/`build` subcommands) |
