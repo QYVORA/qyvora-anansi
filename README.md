@@ -29,7 +29,7 @@
   </h1>
 
   <p style="color: rgba(238, 240, 238, 0.70); font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; margin-top: 0;">
-    <strong style="color: #66B870;">Attack Surface Intelligence Engine</strong> — Terminal Edition
+    <strong style="color: #66B870;">Web Application Penetration Testing Framework</strong> — Terminal Edition
   </p>
 
   <br/>
@@ -389,7 +389,7 @@ $ anansi
 
   [ANANSI ASCII-ART BANNER]          (green)
 
-  Attack Surface Intelligence Engine
+  Web Application Penetration Testing Framework
   QYVORA OffSec — https://qyvora.org
   Built in Tamale, Ghana
 
@@ -473,7 +473,7 @@ Console commands:
 <div align="center">
   <pre style="background: #0d0d0d; border: 1px solid rgba(102, 184, 112, 0.18); border-radius: 8px; padding: 1rem 1.5rem; display: inline-block; text-align: left; color: #EEF0EE; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; line-height: 1.5;">
   <span style="color: #66B870;">[ANANSI attack-surface spider art]</span>
-  Attack Surface Intelligence Engine — QYVORA // qyvora.org
+  Web Application Penetration Testing Framework — QYVORA // qyvora.org
   Built in Go
 
   <span style="color: #66B870;">[+] PHASE 01: DISCOVERY</span>   subdomain enumeration + DNS resolution
@@ -550,7 +550,7 @@ anansi-cli/
 
 The pentesting and bug bounty community runs on Linux terminals. Tools should be single binaries that do one thing well and get out of the way. No web UI, no cloud account, no API key required.
 
-ANANSI CLI is the portable companion to the full ANANSI platform — the API-powered attack surface intelligence service built into the QYVORA OffSec ecosystem. Same detection logic. Same output philosophy. CLI is for your laptop. The API is for your pipeline.
+ANANSI is a terminal-first web application penetration testing framework: it runs a full assessment pipeline against authorized web targets — reconnaissance and attack-surface discovery, HTTP/application-layer analysis, security-header and TLS auditing, technology-stack fingerprinting, exploit-chain analysis, and controlled proof-of-concept validation. Reconnaissance is the entry point, not the whole tool.
 
 ---
 

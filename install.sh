@@ -79,7 +79,7 @@ QYVORA_MIN_GO="1.26"
 QYVORA_ICON="anansi.png"
 QYVORA_ICO="anansi.ico"
 QYVORA_DESKTOP_NAME="ANANSI"
-QYVORA_DESKTOP_COMMENT="Attack Surface Intelligence Engine"
+QYVORA_DESKTOP_COMMENT="Web Application Penetration Testing Framework"
 QYVORA_DESKTOP_KEYWORDS="recon;osint;subdomain;enumeration;probe;tls;headers;security;web"
 # Ordered probes used to prove the installed binary runs
 QYVORA_VERSION_PROBE="--version version --help"

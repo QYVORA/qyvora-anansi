@@ -57,7 +57,7 @@ func runTUI(root *cobra.Command, ctx context.Context) error {
 	code, err := tui.Run(tui.Config{
 		Title:   "QYVORA / ANANSI",
 		Version: version.String(),
-		Banner:  tui.ToolBanner("ANANSI", "Attack Surface Intelligence Engine"),
+		Banner:  tui.ToolBanner("ANANSI", "Web Application Penetration Testing Framework"),
 		Runner:  runner,
 		Out:     os.Stdout,
 	})

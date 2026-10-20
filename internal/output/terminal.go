@@ -105,7 +105,7 @@ func (r *Renderer) Banner(target string) {
 	}
 	fmt.Println()
 	fmt.Println()
-	white.Println("  Attack Surface Intelligence Engine")
+	white.Println("  Web Application Penetration Testing Framework")
 	accent.Printf("  %s — %s\n", CompanyName, CompanyURL)
 	dim.Printf("  Built in %s\n\n", BuiltIn)
 	dim.Printf("  TARGET: ")
@@ -967,7 +967,7 @@ const htmlReportTemplate = `<!DOCTYPE html>
     <header>
         <div class="logo-section">
             <h1>ANANSI SCAN REPORT</h1>
-            <p>Attack Surface Intelligence Engine — {{.CompanyName}}</p>
+            <p>Web Application Penetration Testing Framework — {{.CompanyName}}</p>
         </div>
         <div class="meta">
             <p>Target: <strong>{{.Report.Target}}</strong></p>

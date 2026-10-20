@@ -39,7 +39,7 @@ $SourceBuild = '1'
 $MinGo      = '1.26'
 $IconAsset  = 'anansi.png'
 $IcoAsset   = 'anansi.ico'
-$AppComment = 'Attack Surface Intelligence Engine'
+$AppComment = 'Web Application Penetration Testing Framework'
 # The OS/architecture tokens this tool actually publishes prebuilt archives
 # for. A tool that cannot cross-compile (linux-only transports, or cgo that
 # must link on the release runner) declares a subset here, so this installer

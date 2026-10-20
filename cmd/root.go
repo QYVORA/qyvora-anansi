@@ -125,10 +125,10 @@ func newScanCmd() *cobra.Command {
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "anansi [target]",
-		Short: "ANANSI — Attack Surface Intelligence Engine",
+		Short: "ANANSI — Web Application Penetration Testing Framework",
 		Long: banner.Render() + `
 
-  Attack Surface Intelligence Engine — ` + output.CompanyName + `
+  Web Application Penetration Testing Framework — ` + output.CompanyName + `
   ` + output.CompanyURL + `
   Built in ` + output.BuiltIn + `
 `,

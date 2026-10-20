@@ -43,7 +43,11 @@ const Width = 34
 const Name = "ANANSI"
 
 // Tagline is the one-line descriptor printed with the banner.
-const Tagline = "Attack Surface Intelligence Engine"
+//
+// It states the framework's domain, not one capability: Anansi is a web
+// application penetration testing framework as a whole. Attack-surface
+// discovery is one capability area inside it, not its identity.
+const Tagline = "Web Application Penetration Testing Framework"
 
 // Colorize returns s in the QYVORA brand green.
 //

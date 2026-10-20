@@ -56,3 +56,19 @@ func TestGreenIsBrandAccent(t *testing.T) {
 		t.Errorf("Green = %q, want %q", Green, "#06B66F")
 	}
 }
+
+// TestTaglineStatesFrameworkIdentity guards against the product identity
+// drifting back to a single capability. Anansi is a web application
+// penetration testing framework; "attack surface" discovery is one capability
+// area inside it, so the banner tagline must name the framework, not the
+// technique. Keep this a substring check on the identity phrase, not an exact
+// string match, so the surrounding wording can evolve without false failures.
+func TestTaglineStatesFrameworkIdentity(t *testing.T) {
+	const identity = "Web Application Penetration Testing Framework"
+	if !strings.Contains(Tagline, identity) {
+		t.Errorf("Tagline = %q; must state the framework identity %q", Tagline, identity)
+	}
+	if strings.Contains(strings.ToLower(Tagline), "attack surface intelligence") {
+		t.Errorf("Tagline = %q; must not describe the whole product as an attack-surface tool", Tagline)
+	}
+}

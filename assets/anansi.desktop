@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
 Name=ANANSI
-GenericName=Attack Surface Intelligence Engine
-Comment=Attack Surface Intelligence Engine for web recon and OSINT
+GenericName=Web Application Penetration Testing Framework
+Comment=Web application penetration testing framework for authorized targets
 Exec=@PREFIX@/bin/anansi
 Icon=@PREFIX@/share/icons/hicolor/512x512/apps/anansi.png
 Terminal=true
