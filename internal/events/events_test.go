@@ -37,8 +37,12 @@ func TestEmitterWritesSchemaCompliantJSONL(t *testing.T) {
 	if got[1].Level != LevelWarning || got[2].Level != LevelError {
 		t.Errorf("levels = %s,%s,%s", got[0].Level, got[1].Level, got[2].Level)
 	}
-	if got[0].Data["target"] != "example.com" {
-		t.Errorf("data = %v", got[0].Data)
+	var data map[string]any
+	if err := got[0].DecodeData(&data); err != nil {
+		t.Fatalf("decode data: %v", err)
+	}
+	if data["target"] != "example.com" {
+		t.Errorf("data = %v", data)
 	}
 }
 
