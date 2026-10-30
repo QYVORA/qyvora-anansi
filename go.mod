@@ -10,7 +10,10 @@ require (
 	github.com/spf13/cobra v1.10.2
 )
 
+require github.com/QYVORA/qyvora-models v0.1.1 // indirect
+
 require (
+	github.com/QYVORA/qyvora-events v0.1.1
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/charmbracelet/bubbles v1.0.0 // indirect
