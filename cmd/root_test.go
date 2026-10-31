@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"strings"
 	"testing"
 
@@ -113,10 +112,11 @@ func TestVersionSubcommandJSONOutput(t *testing.T) {
 	root.SetOut(&buf)
 	buf.Reset()
 	root.SetArgs([]string{"version", "-o", "yaml"})
-	err := root.Execute()
-	var ue *usageError
-	if !errors.As(err, &ue) {
-		t.Errorf("version -o yaml error = %v, want usageError (exit 2)", err)
+	if err := root.Execute(); err != nil {
+		t.Fatalf("Execute version -o yaml: %v", err)
+	}
+	if !strings.Contains(buf.String(), "framework: anansi") {
+		t.Errorf("version -o yaml = %q, want framework: anansi", buf.String())
 	}
 }
 
@@ -250,6 +250,7 @@ func TestRootRejectsExtraArguments(t *testing.T) {
 func TestSubcommandsRejectExtraArguments(t *testing.T) {
 	for _, args := range [][]string{
 		{"version", "extra"},
+		{"capabilities", "extra"},
 		{"updates", "extra"},
 	} {
 		if code := execCode(t, args...); code != 2 {

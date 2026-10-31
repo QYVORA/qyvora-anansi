@@ -45,5 +45,5 @@ anansi <tier> <module> [<action>] [target] [flags]
 | Command | Purpose |
 |---------|---------|
 | `anansi scan` | Run a scan against a target |
-| `anansi tui` | start the interactive terminal application |
-| `docs script <file>` | Run a `.qs` script with the shared scripting engine (`run`/`build` subcommands) |
+| `anansi capabilities` | Print the machine-readable capability contract (`-o json` or `-o yaml`) |
+| `anansi script <file>` | Run a `.qs` script with the shared scripting engine (`run`/`build` subcommands) |

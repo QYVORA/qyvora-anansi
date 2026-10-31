@@ -1,5 +1,5 @@
-github.com/QYVORA/qyvora-events v0.1.1 h1:hcs5nc+a/pxTKjvWQ3rG7wWDsMX4mTQ3h7InD6OzVp8=
-github.com/QYVORA/qyvora-events v0.1.1/go.mod h1:Sfyd8axRlq74kaLj2Fy2rJ3WZO7Qz8vnTOH0N5+JZzc=
+github.com/QYVORA/qyvora-events v0.2.0 h1:32DErvSKN2VQJRtr+ClLu7Z1RRknXvSaoY2K1+F5oJ4=
+github.com/QYVORA/qyvora-events v0.2.0/go.mod h1:Sfyd8axRlq74kaLj2Fy2rJ3WZO7Qz8vnTOH0N5+JZzc=
 github.com/QYVORA/qyvora-models v0.1.1 h1:NhpeAUCe+hdyytC7Av08/VjqSCbd2d4QSdUF1pL5+NE=
 github.com/QYVORA/qyvora-models v0.1.1/go.mod h1:N0YS/B4mIseikmRMlM8PivWMg/Zr3T8JWgnzeB4xzPw=
 github.com/QYVORA/qyvora-script v0.1.0 h1:kEGyKlGXsv6/2bVn6NNmdu0DJK6HZB0DD2thl/O34IA=
@@ -64,6 +64,8 @@ github.com/spf13/pflag v1.0.9/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An
 github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e h1:JVG44RsyaB9T2KIHavMF/ppJZNG9ZpyihvCd0w101no=
 github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e/go.mod h1:RbqR21r5mrJuqunuUZ/Dhy/avygyECGrLceyNeo4LiM=
 go.yaml.in/yaml/v3 v3.0.4/go.mod h1:DhzuOOF2ATzADvBadXxruRBLzYTpT36CKvDb3+aBEFg=
+go.yaml.in/yaml/v3 v3.0.5 h1:N6y/pJk8buWs9NY5ERU2HSMfm+IuD/OtfdAnq6kESPw=
+go.yaml.in/yaml/v3 v3.0.5/go.mod h1:HVTZu1O7/Vkt2N+BFy8Zza+lnLsABggaTM2ZpNIGuKg=
 golang.org/x/exp v0.0.0-20231006140011-7918f672742d h1:jtJma62tbqLibJ5sFQz8bKtEM8rJBtfilJ2qTU199MI=
 golang.org/x/exp v0.0.0-20231006140011-7918f672742d/go.mod h1:ldy0pHrwJyGW56pPQzzkH36rKxoZW1tw7ZJpeKx+hdo=
 golang.org/x/sys v0.0.0-20210809222454-d867a43fc93e/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=

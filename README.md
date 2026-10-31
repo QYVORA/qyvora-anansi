@@ -373,6 +373,9 @@ anansi target.com --threads 100
 anansi target.com -o json > results.json
 anansi target.com -o json | jq '.Findings[] | select(.Severity == "CRITICAL")'
 
+# YAML output
+anansi target.com -o yaml > results.yaml
+
 # Markdown output
 anansi target.com -o markdown > recon.md
 
@@ -456,7 +459,7 @@ Console commands:
 | `--ports` | `-p` | 80,443 | Alternative ports to probe (comma-separated list) |
 | `--delay` | | 0 | Delay between requests in milliseconds for rate limiting |
 | `--deep` | | false | Larger subdomain wordlist + more path probing rules |
-| `-o, --output` | `-o` | terminal | Output format: `terminal` \| `json` \| `markdown` \| `html` |
+| `-o, --output` | `-o` | terminal | Output format: `terminal` \| `json` \| `yaml` \| `markdown` \| `html` |
 | `--timeout` | | 5 | Per-request timeout in seconds |
 | `--threads` | `-t` | 100 | Number of concurrent threads to use for scanning |
 | `--stealth` | | false | Enable stealth mode: random User-Agent, jitter, skip crt.sh, reduce noise |

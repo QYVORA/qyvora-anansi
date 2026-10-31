@@ -76,8 +76,11 @@ func newVersionCmd() *cobra.Command {
 				fmt.Fprintln(cmd.OutOrStdout(), string(data))
 				return nil
 			}
+			if strings.EqualFold(flagOut, "yaml") {
+				return output.WriteYAML(cmd.OutOrStdout(), info)
+			}
 			if !strings.EqualFold(flagOut, "terminal") {
-				return &usageError{fmt.Errorf("invalid output format %q for version (terminal, json)", flagOut)}
+				return &usageError{fmt.Errorf("invalid output format %q for version (terminal, json, yaml)", flagOut)}
 			}
 			// Write to stdout explicitly. cobra's cmd.Print* helpers route to
 			// OutOrStderr(), so `anansi version > file` used to produce an empty
@@ -131,6 +134,11 @@ func newRootCmd() *cobra.Command {
   Web Application Penetration Testing Framework — ` + output.CompanyName + `
   ` + output.CompanyURL + `
   Built in ` + output.BuiltIn + `
+
+  Commands follow the shared tier grammar
+  anansi <tier> <module> [<action>] [target] [flags], where the tier is one of
+  recon, exploit, or report. Run it with no arguments to print this help;
+  assessment is one-shot.
 `,
 		// rootArgs keeps the root accepting a bare positional target even
 		// though it also has subcommands (e.g. `anansi version`), without
@@ -274,7 +282,7 @@ func registerRootFlags(root *cobra.Command) {
 	pf.BoolVar(&updateFlag, "update", false, "update the CLI to the latest official release")
 	pf.BoolVar(&allowShellOut, "allow-shellout", false, "allow scripts to use exec/run.cmd shell-out (also via QYVORA_ALLOW_SHELLOUT=1)")
 	pf.BoolVar(&flagDeep, "deep", false, "Enable deep scan (larger wordlist, more path probing)")
-	pf.StringVarP(&flagOut, "output", "o", "terminal", "Output format: terminal | json | markdown | html")
+	pf.StringVarP(&flagOut, "output", "o", "terminal", "Output format: terminal | json | yaml | markdown | html")
 	// "out" is kept as a legacy alias; "--output"/-o is the canonical spelling.
 	pf.StringVar(&flagOut, "out", "terminal", "Output format (legacy alias for --output")
 	_ = pf.MarkHidden("out")
@@ -354,6 +362,7 @@ func attachSubcommands(root *cobra.Command) *cobra.Command {
 	// Flat utility verbs, shared by every QYVORA framework.
 	root.AddCommand(
 		newVersionCmd(),
+		newCapabilitiesCmd(),
 		newUpdatesCmd(),
 		newCompletionCmd(),
 		newScriptCmd(),

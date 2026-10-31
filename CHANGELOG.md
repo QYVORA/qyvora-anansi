@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+- `capabilities` command with JSON/YAML output.
+- YAML output format.
+- Root help now documents the shared tier grammar.
+- Migrated to `qyvora-events v0.2.0`.
+
 ### Changed (version system & contact)
 - **Unified version system** — build identity moved from `cmd.Version` to a
   canonical `internal/version` package (framework, version, commit, date,

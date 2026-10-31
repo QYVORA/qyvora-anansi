@@ -1,5 +1,5 @@
-// Package output implements report rendering for terminal, JSON, Markdown,
-// and HTML output formats.  The Renderer struct is the primary consumer-facing
+// Package output implements report rendering for terminal, JSON, YAML,
+// Markdown, and HTML output formats.  The Renderer struct is the primary consumer-facing
 // API used by every scan phase to display progress and results.
 package output
 
@@ -70,7 +70,7 @@ func (r *Renderer) WithStealth() *Renderer {
 }
 
 func (r *Renderer) isQuiet() bool {
-	return r.format == "json" || r.format == "html" || r.format == "markdown"
+	return r.format == "json" || r.format == "yaml" || r.format == "html" || r.format == "markdown"
 }
 
 // Verbose prints a message only when the --verbose flag is set and the
@@ -595,6 +595,13 @@ func (r *Renderer) Summary(report *Report) {
 		enc.SetIndent("", "  ")
 		if err := enc.Encode(report); err != nil {
 			fmt.Fprintf(os.Stderr, "Error encoding JSON: %s\n", err)
+		}
+		return
+	}
+
+	if r.format == "yaml" {
+		if err := WriteYAML(os.Stdout, report); err != nil {
+			fmt.Fprintf(os.Stderr, "Error encoding YAML: %s\n", err)
 		}
 		return
 	}
