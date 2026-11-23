@@ -175,8 +175,7 @@ as evidence:
   schema as every QYVORA framework.
 - **CLI** — `anansi exploit <url> --module web/path-traversal --authorized`
   runs a single module; the full exploit phase also runs at the end of a
-  complete scan, and the console offers an `exploit` module context with
-  `use`, `validate`, `status`, `set`, and `AUTHORIZED` commands.
+  complete scan.
 
 ```bash
 anansi target.com --authorized                    # full pipeline incl. EXPLOIT
@@ -383,71 +382,11 @@ anansi target.com -o markdown > recon.md
 anansi target.com -o html > report.html
 ```
 
-All one-line commands above keep working exactly as documented. Running `anansi`
-with **no arguments** drops you into an interactive Metasploit-style console
-(with a startup banner on a real terminal):
-
-```
-$ anansi
-
-  [ANANSI ASCII-ART BANNER]          (green)
-
-  Web Application Penetration Testing Framework
-  QYVORA OffSec — https://qyvora.org
-  Built in Tamale, Ghana
-
-  [>] v dev
-  type 'help' for the command list, 'options' to view scan options.
-
-▮ rhosts none  ·  module none                      v dev
-anansiλ > set RHOSTS target.com
-  [*] RHOSTS => target.com
-▮ rhosts target.com  ·  module none                v dev
-anansiλ > set THREADS 200
-  [*] THREADS => 200
-anansi > run
-...
-anansiλ > use paths
-  [*] Using module paths
-▮ rhosts target.com  ·  module paths               v dev
-anansiλ[paths] > info
-anansiλ[paths] > back
-  [-] Module deselected.
-anansiλ > exit
-```
-
-A live status strip above the prompt tracks the current `RHOSTS` and module
-context, and the prompt carries the selected module (`anansiλ[paths] >`).
-
-CLI flags passed without a target are inherited by the console as initial
-options, so `anansi --deep --threads 250` starts the REPL with those values
-already set.
-
-The console provides arrow-key history, tab completion, and persistent history
-(`~/.anansi_history`). Piped input also works, so you can script sessions
-(piped sessions skip the startup banner):
-
-```
-printf 'set RHOSTS target.com\nrun\nexit\n' | anansi
-```
-
-Console commands:
-
-| Command | Description |
-|---------|-------------|
-| `scan <target>` | Run a full scan against `<target>` (also available as the CLI subcommand `anansi scan <target>`) |
-| `run [target]` | Run a scan; falls back to `RHOSTS`, honors the selected module |
-| `set <opt> <value>` | Set a scan option (e.g. `set THREADS 200`) |
-| `unset <opt>` | Restore an option's default value |
-| `options` / `show options` | Show the current option values |
-| `use <module>` | Select a module context (`discovery`, `probe`, `tls`, `headers`, `paths`, `tech`, `takeover`, `osint`, `chain`) |
-| `back` | Deselect the current module |
-| `info` | Show module or option information |
-| `search <text>` | Search modules and options |
-| `banner` | Print the ANANSI banner |
-| `history` | Show command history |
-| `version` | Show version information |
-| `exit` / `quit` | Leave the console |
+All one-line commands above keep working exactly as documented. The
+interactive console is retired and unavailable in this release: `cmd/tui.go`
+carries `//go:build ignore`, and a bare `anansi` invocation prints CLI usage.
+The per-tool TUI is disabled pending the redirect of qyvora-tui to the future
+AI orchestration layer. Use the one-shot commands above.
 
 ### Flags
 
@@ -519,7 +458,7 @@ anansi-cli/
 ├── go.mod                       # Go module + dependencies
 ├── cmd/
 │   ├── root.go                  # CLI command, flags, phase orchestration
-│   └── console.go               # Interactive Metasploit-style console
+│   └── tui.go                   # Retired console source (excluded from builds)
 └── internal/
     ├── output/
     │   ├── types.go             # Shared data structures
