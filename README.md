@@ -542,3 +542,16 @@ PRs welcome. Open an issue first for major changes. If you add a new path rule, 
     Cybersecurity in Africa is booming. We are building the people behind it.
   </p>
 </div>
+
+## CI pre-push checks
+
+Run these from the repository root before pushing (they mirror `.github/workflows/ci.yml`):
+
+```sh
+test -z "$(gofmt -l .)"
+go vet ./...
+go test ./...
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ./...
+```
+
+CI needs the repository secret `QYVORA_CI_TOKEN` (fine-grained PAT or GitHub App token with read access to the private QYVORA Go module repositories). Without it the private-module preflight step fails with an explicit message.
