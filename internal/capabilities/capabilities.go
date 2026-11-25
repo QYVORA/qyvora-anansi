@@ -49,7 +49,9 @@ func Build(scanModules []string) Document {
 	mods := append([]string(nil), scanModules...)
 	sort.Strings(mods)
 
-	tools := []Tool{{
+	exploits := exploit.DefaultRegistry.All()
+	tools := make([]Tool, 0, 1+len(exploits))
+	tools = append(tools, Tool{
 		ID:             "anansi.scan",
 		Name:           "Web application assessment",
 		Description:    "Run the configured web assessment modules against an authorized target.",
@@ -65,9 +67,9 @@ func Build(scanModules []string) Document {
 		Targets:        []string{"url", "domain"},
 		Duration:       "minutes",
 		CapabilityType: "scan",
-	}}
+	})
 
-	for _, m := range exploit.DefaultRegistry.All() {
+	for _, m := range exploits {
 		meta := m.Meta()
 		tools = append(tools, Tool{
 			ID:             "anansi.exploit." + meta.ID,
