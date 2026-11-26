@@ -73,6 +73,10 @@
 
 ---
 
+## Readiness
+
+**AVAILABLE.** ANANSI is the public v1.3.0 web application pentest / attack-surface intelligence framework, with terminal-first reconnaissance and exploitation workflows. Its owner classification is `AVAILABLE`; the release tag records version evidence and does not itself set lifecycle status. See the [Product Registry](../../../../knowledge/qyvora-docs/07-products/PRODUCT-REGISTRY.md).
+
 ## What it does
 
 ANANSI CLI is a terminal-first attack surface recon tool for pentesters and bug bounty hunters. Give it a domain — it runs a full ten-phase intelligence and exploitation pipeline and prints raw technical output you can act on immediately.
